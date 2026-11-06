@@ -37,49 +37,7 @@
 	overflow-wrap: anywhere;
 }
 
-/* Report */
-.ptu-report__intro {
-	max-width: 60em;
-}
-
-.ptu-report__section {
-	margin-top: 24px;
-}
-
-.ptu-stats {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 12px;
-	margin: 8px 0 16px;
-}
-
-.ptu-stats li {
-	margin: 0;
-	padding: 10px 16px;
-	background: #fff;
-	border: 1px solid #dcdcde;
-	border-left-width: 4px;
-	border-left-color: #2271b1;
-	border-radius: 2px;
-}
-
-.ptu-stats li strong {
-	font-size: 1.4em;
-	margin-right: 2px;
-}
-
-.ptu-stats li.is-notice {
-	border-left-color: #dba617;
-}
-
-.ptu-stats li.is-error {
-	border-left-color: #d63638;
-}
-
-.ptu-table {
-	max-width: 960px;
-}
-
+/* Report. Cards, stats and badges come from axle-ui.css. */
 .ptu-table .num {
 	width: 90px;
 	text-align: right;
@@ -94,33 +52,9 @@
 }
 
 .ptu-row--missing td:first-child strong {
-	color: #b32d2e;
+	color: var(--axle-error-text);
 	font-family: Consolas, Monaco, monospace;
 	font-weight: 400;
-}
-
-.ptu-badge {
-	display: inline-block;
-	padding: 2px 8px;
-	border-radius: 10px;
-	font-size: 12px;
-	background: #f0f0f1;
-	color: #1d2327;
-}
-
-.ptu-badge--used {
-	background: #edfaef;
-	color: #00450c;
-}
-
-.ptu-badge--unused {
-	background: #fcf9e8;
-	color: #614200;
-}
-
-.ptu-badge--missing {
-	background: #fcf0f1;
-	color: #8a2424;
 }
 
 .ptu-reassign {
