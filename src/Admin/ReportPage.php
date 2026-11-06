@@ -105,7 +105,8 @@ final class ReportPage implements Service {
 	 * Report styles.
 	 */
 	public function enqueue_styles(): void {
-		wp_enqueue_style( 'page-template-usage', plugins_url( 'assets/admin.css', PLUGIN_FILE ), array(), VERSION );
+		AxleUi::enqueue();
+		wp_enqueue_style( 'page-template-usage', plugins_url( 'assets/admin.css', PLUGIN_FILE ), array( AxleUi::HANDLE ), VERSION );
 	}
 
 	/**
@@ -114,21 +115,27 @@ final class ReportPage implements Service {
 	public function render(): void {
 		$post_types = $this->templates->get_post_types();
 		?>
-		<div class="wrap ptu-report">
-			<h1><?php esc_html_e( 'Page Template Usage', 'page-template-usage' ); ?></h1>
-			<p class="ptu-report__intro">
-				<?php esc_html_e( 'Every template your theme offers, how many items use it, and items that point at a template the theme no longer has.', 'page-template-usage' ); ?>
-			</p>
+		<div class="wrap axle-ui ptu-report">
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'Page Template Usage', 'page-template-usage' ); ?></h1>
+			<hr class="wp-header-end">
 
 			<?php $this->render_notice(); ?>
 
+			<p class="axle-intro ptu-report__intro">
+				<?php esc_html_e( 'Every template your theme offers, how many items use it, and items that point at a template the theme no longer has.', 'page-template-usage' ); ?>
+			</p>
+
 			<?php if ( ! $post_types ) : ?>
-				<p><?php esc_html_e( 'The active theme has no templates to choose from.', 'page-template-usage' ); ?></p>
+				<div class="axle-empty">
+					<p><?php esc_html_e( 'The active theme has no templates to choose from. When it offers some, they will show up here with how many items use each one.', 'page-template-usage' ); ?></p>
+				</div>
 			<?php endif; ?>
 
 			<?php foreach ( $post_types as $post_type ) : ?>
 				<?php $this->render_post_type( $post_type ); ?>
 			<?php endforeach; ?>
+
+			<?php AxleUi::footer(); ?>
 		</div>
 		<?php
 	}
@@ -145,6 +152,12 @@ final class ReportPage implements Service {
 		$list_column = new ListColumn( $this->templates );
 		$unused      = count( wp_list_filter( $rows, array( 'status' => 'unused' ) ) );
 		$missing     = array_sum( wp_list_pluck( wp_list_filter( $rows, array( 'status' => 'missing' ) ), 'count' ) );
+		$tones       = array(
+			'default' => 'neutral',
+			'used'    => 'good',
+			'unused'  => 'warning',
+			'missing' => 'error',
+		);
 		$labels      = array(
 			'default' => __( 'Default', 'page-template-usage' ),
 			'used'    => __( 'In use', 'page-template-usage' ),
@@ -152,29 +165,28 @@ final class ReportPage implements Service {
 			'missing' => __( 'Missing', 'page-template-usage' ),
 		);
 		?>
-		<section class="ptu-report__section" aria-labelledby="tuc-<?php echo esc_attr( $post_type->name ); ?>">
-			<h2 id="tuc-<?php echo esc_attr( $post_type->name ); ?>"><?php echo esc_html( $post_type->labels->name ); ?></h2>
+		<section class="axle-card ptu-report__section" aria-labelledby="tuc-<?php echo esc_attr( $post_type->name ); ?>">
+			<h2 class="axle-card__title" id="tuc-<?php echo esc_attr( $post_type->name ); ?>"><?php echo esc_html( $post_type->labels->name ); ?></h2>
 
-			<ul class="ptu-stats">
-				<?php /* translators: %s: number of templates. */ ?>
-				<li><?php $this->stat( count( $templates ), _n( '%s template', '%s templates', count( $templates ), 'page-template-usage' ) ); ?></li>
-				<?php /* translators: %s: number of unused templates. */ ?>
-				<li class="<?php echo $unused ? 'is-notice' : ''; ?>"><?php $this->stat( $unused, _n( '%s unused', '%s unused', $unused, 'page-template-usage' ) ); ?></li>
-				<li class="<?php echo $missing ? 'is-error' : ''; ?>">
-					<?php
-					if ( 'page' === $post_type->name ) {
-						/* translators: %s: number of pages. */
-						$this->stat( $missing, _n( '%s page on missing templates', '%s pages on missing templates', $missing, 'page-template-usage' ) );
-					} elseif ( 'post' === $post_type->name ) {
-						/* translators: %s: number of posts. */
-						$this->stat( $missing, _n( '%s post on missing templates', '%s posts on missing templates', $missing, 'page-template-usage' ) );
-					} else {
-						/* translators: %s: number of items. */
-						$this->stat( $missing, _n( '%s item on missing templates', '%s items on missing templates', $missing, 'page-template-usage' ) );
-					}
-					?>
-				</li>
-			</ul>
+			<div class="axle-stats">
+				<?php /* translators: label under the number of templates. */ ?>
+				<?php $this->stat( count( $templates ), _n( 'template', 'templates', count( $templates ), 'page-template-usage' ), '' ); ?>
+				<?php /* translators: label under the number of unused templates. */ ?>
+				<?php $this->stat( $unused, __( 'unused', 'page-template-usage' ), $unused ? 'warning' : '' ); ?>
+				<?php
+				if ( 'page' === $post_type->name ) {
+					/* translators: label under the number of pages on missing templates. */
+					$missing_label = _n( 'page on a missing template', 'pages on missing templates', $missing, 'page-template-usage' );
+				} elseif ( 'post' === $post_type->name ) {
+					/* translators: label under the number of posts on missing templates. */
+					$missing_label = _n( 'post on a missing template', 'posts on missing templates', $missing, 'page-template-usage' );
+				} else {
+					/* translators: label under the number of items on missing templates. */
+					$missing_label = _n( 'item on a missing template', 'items on missing templates', $missing, 'page-template-usage' );
+				}
+				$this->stat( $missing, $missing_label, $missing ? 'error' : '' );
+				?>
+			</div>
 
 			<table class="widefat striped ptu-table">
 				<thead>
@@ -203,7 +215,7 @@ final class ReportPage implements Service {
 									0
 								<?php endif; ?>
 							</td>
-							<td><span class="ptu-badge ptu-badge--<?php echo esc_attr( $row['status'] ); ?>"><?php echo esc_html( $labels[ $row['status'] ] ); ?></span></td>
+							<td><span class="axle-badge axle-badge--<?php echo esc_attr( $tones[ $row['status'] ] ); ?>"><?php echo esc_html( $labels[ $row['status'] ] ); ?></span></td>
 							<?php if ( $can_edit ) : ?>
 								<td>
 									<?php if ( $row['count'] ) : ?>
@@ -223,11 +235,16 @@ final class ReportPage implements Service {
 	 * Prints one summary number with its label.
 	 *
 	 * @param int    $number Number.
-	 * @param string $format Translated text with %s where the number goes.
+	 * @param string $label  Translated label.
+	 * @param string $tone   Tone: good, warning, error, info, or empty for none.
 	 */
-	private function stat( int $number, string $format ): void {
-		// The number goes inside the translated sentence, wrapped in <strong>.
-		echo wp_kses( sprintf( esc_html( $format ), '<strong>' . esc_html( number_format_i18n( $number ) ) . '</strong>' ), array( 'strong' => array() ) );
+	private function stat( int $number, string $label, string $tone ): void {
+		printf(
+			'<div class="axle-stat%1$s"><span class="axle-stat__value">%2$s</span><span class="axle-stat__label">%3$s</span></div>',
+			$tone ? ' axle-stat--' . esc_attr( $tone ) : '',
+			esc_html( number_format_i18n( $number ) ),
+			esc_html( $label )
+		);
 	}
 
 	/**
