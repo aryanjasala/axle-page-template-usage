@@ -86,9 +86,9 @@ test.describe( 'Page Template Usage', () => {
 		await page.goto( '/wp-admin/themes.php?page=page-template-usage' );
 
 		const section = page.locator( '.ptu-report__section', { has: page.getByRole( 'heading', { name: 'Pages' } ) } );
-		await expect( section.locator( `tr[data-template="${ NO_TITLE }"] .ptu-badge` ) ).toHaveText( 'In use' );
-		await expect( section.locator( `tr[data-template="${ GONE }"] .ptu-badge` ) ).toHaveText( 'Missing' );
-		await expect( section.locator( '.ptu-stats li.is-error' ) ).toContainText( '1' );
+		await expect( section.locator( `tr[data-template="${ NO_TITLE }"] .axle-badge` ) ).toHaveText( 'In use' );
+		await expect( section.locator( `tr[data-template="${ GONE }"] .axle-badge` ) ).toHaveText( 'Missing' );
+		await expect( section.locator( '.axle-stat--error' ) ).toContainText( '1' );
 
 		const missingRow = section.locator( `tr[data-template="${ GONE }"]` );
 		await missingRow.locator( 'select[name="to"]' ).selectOption( NO_TITLE );
