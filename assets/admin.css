@@ -1,18 +1,18 @@
 /* List screens */
-.fixed .column-page_template_usage {
+.fixed .column-axle_page_template_usage {
 	width: 15%;
 }
 
-.column-page_template_usage .ptu-default {
+.column-axle_page_template_usage .aptu-default {
 	color: #646970;
 }
 
-.column-page_template_usage .ptu-missing {
+.column-axle_page_template_usage .aptu-missing {
 	color: #b32d2e;
 	font-weight: 600;
 }
 
-.column-page_template_usage .ptu-missing .dashicons {
+.column-axle_page_template_usage .aptu-missing .dashicons {
 	font-size: 16px;
 	width: 16px;
 	height: 16px;
@@ -20,14 +20,14 @@
 	vertical-align: text-bottom;
 }
 
-.ptu-slug {
+.aptu-slug {
 	display: inline-block;
 	margin-top: 2px;
 	font-size: 11px;
 	word-break: break-all;
 }
 
-.column-page_template_usage .ptu-slug {
+.column-axle_page_template_usage .aptu-slug {
 	display: block;
 	padding: 0;
 	margin: 2px 0 0 20px;
@@ -38,37 +38,37 @@
 }
 
 /* Report. Cards, stats and badges come from axle-ui.css. */
-.ptu-table .num {
+.aptu-table .num {
 	width: 90px;
 	text-align: right;
 }
 
-.ptu-table td {
+.aptu-table td {
 	vertical-align: middle;
 }
 
-.ptu-table .ptu-slug {
+.aptu-table .aptu-slug {
 	margin-left: 6px;
 }
 
-.ptu-row--missing td:first-child strong {
+.aptu-row--missing td:first-child strong {
 	color: var(--axle-error-text);
 	font-family: Consolas, Monaco, monospace;
 	font-weight: 400;
 }
 
-.ptu-reassign {
+.aptu-reassign {
 	display: flex;
 	gap: 6px;
 	align-items: center;
 }
 
 @media screen and (max-width: 782px) {
-	.ptu-table .num {
+	.aptu-table .num {
 		width: auto;
 	}
 
-	.ptu-reassign {
+	.aptu-reassign {
 		flex-wrap: wrap;
 	}
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<ruleset name="Page Template Usage">
-	<description>WordPress coding standards for Page Template Usage.</description>
+<ruleset name="Axle Page Template Usage">
+	<description>WordPress coding standards for Axle Page Template Usage.</description>
 
 	<file>.</file>
 	<exclude-pattern>/vendor/*</exclude-pattern>
@@ -24,7 +24,7 @@
 	<rule ref="WordPress.WP.I18n">
 		<properties>
 			<property name="text_domain" type="array">
-				<element value="page-template-usage"/>
+				<element value="axle-page-template-usage"/>
 			</property>
 		</properties>
 	</rule>
@@ -33,7 +33,7 @@
 		<properties>
 			<property name="prefixes" type="array">
 				<element value="AryanX\Axle\PageTemplateUsage"/>
-				<element value="page_template_usage"/>
+				<element value="axle_page_template_usage"/>
 			</property>
 		</properties>
 	</rule>

@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  */
 final class AxleUi {
 
-	public const HANDLE = 'page-template-usage-axle-ui';
+	public const HANDLE = 'axle-page-template-usage-axle-ui';
 
 	/**
 	 * Registers and enqueues the shared stylesheet. Call it from the
@@ -36,11 +36,11 @@ final class AxleUi {
 	public static function footer(): void {
 		printf(
 			'<p class="axle-footer">%1$s &middot; <a href="%2$s">%3$s</a> &middot; <a href="%4$s">%5$s</a></p>',
-			esc_html__( 'Part of Axle by AryanX', 'page-template-usage' ),
-			esc_url( 'https://axlewp.com/plugins/page-template-usage/' ),
-			esc_html__( 'Documentation', 'page-template-usage' ),
-			esc_url( 'https://wordpress.org/support/plugin/page-template-usage/' ),
-			esc_html__( 'Support', 'page-template-usage' )
+			esc_html__( 'Part of Axle by AryanX', 'axle-page-template-usage' ),
+			esc_url( 'https://axlewp.com/plugins/axle-page-template-usage/' ),
+			esc_html__( 'Documentation', 'axle-page-template-usage' ),
+			esc_url( 'https://wordpress.org/support/plugin/axle-page-template-usage/' ),
+			esc_html__( 'Support', 'axle-page-template-usage' )
 		);
 	}
 }

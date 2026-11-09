@@ -31,19 +31,19 @@ test.describe( 'Screenshots', () => {
 
 	test( '1: the Template column and filter on the Pages screen', async ( { page } ) => {
 		await page.goto( '/wp-admin/edit.php?post_type=page&orderby=title&order=asc' );
-		await expect( page.locator( '.ptu-missing-notice' ) ).toBeVisible();
+		await expect( page.locator( '.aptu-missing-notice' ) ).toBeVisible();
 		await shot( page, 1 );
 	} );
 
 	test( '2: pages whose template no longer exists', async ( { page } ) => {
-		await page.goto( '/wp-admin/edit.php?post_type=page&page_template_usage=__missing' );
+		await page.goto( '/wp-admin/edit.php?post_type=page&axle_page_template_usage=__missing' );
 		await expect( page.locator( '#the-list tr' ) ).toHaveCount( 2 );
 		await shot( page, 2 );
 	} );
 
-	test( '3: Appearance > Page Template Usage', async ( { page } ) => {
-		await page.goto( '/wp-admin/themes.php?page=page-template-usage' );
-		await expect( page.locator( '.ptu-table' ).first() ).toBeVisible();
+	test( '3: Appearance > Axle Page Template Usage', async ( { page } ) => {
+		await page.goto( '/wp-admin/themes.php?page=axle-page-template-usage' );
+		await expect( page.locator( '.aptu-table' ).first() ).toBeVisible();
 		await shot( page, 3 );
 	} );
 } );

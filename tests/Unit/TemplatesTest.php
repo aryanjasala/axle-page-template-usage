@@ -104,7 +104,7 @@ final class TemplatesTest extends TestCase {
 		$result = $this->templates->reassign( 'page', Templates::MISSING, 'templates/nope.php' );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
-		$this->assertSame( 'page_template_usage_unknown_template', $result->get_error_code() );
+		$this->assertSame( 'axle_page_template_usage_unknown_template', $result->get_error_code() );
 	}
 
 	/**
@@ -128,8 +128,8 @@ final class TemplatesTest extends TestCase {
 
 	public function test_reassign_moves_every_matching_post(): void {
 		$this->queue( array( array( 11, 12 ), array() ) );
-		Actions\expectDone( 'page_template_usage_before_reassign' )->once()->with( 'page', Templates::MISSING, 'page-wide', 0 );
-		Actions\expectDone( 'page_template_usage_reassigned' )->once()->with( 'page', Templates::MISSING, 'page-wide', array( 11, 12 ) );
+		Actions\expectDone( 'axle_page_template_usage_before_reassign' )->once()->with( 'page', Templates::MISSING, 'page-wide', 0 );
+		Actions\expectDone( 'axle_page_template_usage_reassigned' )->once()->with( 'page', Templates::MISSING, 'page-wide', array( 11, 12 ) );
 		Functions\expect( 'update_post_meta' )->twice()->with( Mockery::anyOf( 11, 12 ), '_wp_page_template', 'page-wide' );
 
 		$this->assertSame(
@@ -175,6 +175,6 @@ final class TemplatesTest extends TestCase {
 			)
 		);
 
-		$this->assertSame( array( 'cb', 'title', 'page_template_usage', 'date' ), array_keys( $columns ) );
+		$this->assertSame( array( 'cb', 'title', 'axle_page_template_usage', 'date' ), array_keys( $columns ) );
 	}
 }

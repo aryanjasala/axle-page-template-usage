@@ -1,6 +1,6 @@
 <?php
 /**
- * Appearance > Page Template Usage report.
+ * Appearance > Axle Page Template Usage report.
  *
  * @package AryanX\Axle\PageTemplateUsage
  */
@@ -19,9 +19,9 @@ defined( 'ABSPATH' ) || exit;
  */
 final class ReportPage implements Service {
 
-	public const SLUG = 'page-template-usage';
+	public const SLUG = 'axle-page-template-usage';
 
-	private const ACTION = 'page_template_usage_reassign';
+	private const ACTION = 'axle_page_template_usage_reassign';
 
 	/**
 	 * Template data.
@@ -65,11 +65,11 @@ final class ReportPage implements Service {
 		 * @param int    $limit     Default 500.
 		 * @param string $post_type Post type being moved.
 		 */
-		return max( 1, (int) apply_filters( 'page_template_usage_move_limit', self::MOVE_LIMIT, $post_type ) );
+		return max( 1, (int) apply_filters( 'axle_page_template_usage_move_limit', self::MOVE_LIMIT, $post_type ) );
 	}
 
 	/**
-	 * Capability needed to open Appearance > Page Template Usage.
+	 * Capability needed to open Appearance > Axle Page Template Usage.
 	 *
 	 * Moving posts also needs edit_posts on the post type, and edit_post on each post.
 	 *
@@ -77,20 +77,20 @@ final class ReportPage implements Service {
 	 */
 	public static function capability(): string {
 		/**
-		 * Filters the capability needed to open Appearance > Page Template Usage.
+		 * Filters the capability needed to open Appearance > Axle Page Template Usage.
 		 *
 		 * @param string $capability Default edit_pages.
 		 */
-		return (string) apply_filters( 'page_template_usage_capability', 'edit_pages' );
+		return (string) apply_filters( 'axle_page_template_usage_capability', 'edit_pages' );
 	}
 
 	/**
-	 * Registers Appearance > Page Template Usage.
+	 * Registers Appearance > Axle Page Template Usage.
 	 */
 	public function add_page(): void {
 		$hook = add_theme_page(
-			__( 'Page Template Usage', 'page-template-usage' ),
-			__( 'Page Template Usage', 'page-template-usage' ),
+			__( 'Axle Page Template Usage', 'axle-page-template-usage' ),
+			__( 'Axle Page Template Usage', 'axle-page-template-usage' ),
 			self::capability(),
 			self::SLUG,
 			array( $this, 'render' )
@@ -106,7 +106,7 @@ final class ReportPage implements Service {
 	 */
 	public function enqueue_styles(): void {
 		AxleUi::enqueue();
-		wp_enqueue_style( 'page-template-usage', plugins_url( 'assets/admin.css', PLUGIN_FILE ), array( AxleUi::HANDLE ), VERSION );
+		wp_enqueue_style( 'axle-page-template-usage', plugins_url( 'assets/admin.css', PLUGIN_FILE ), array( AxleUi::HANDLE ), VERSION );
 	}
 
 	/**
@@ -115,19 +115,19 @@ final class ReportPage implements Service {
 	public function render(): void {
 		$post_types = $this->templates->get_post_types();
 		?>
-		<div class="wrap axle-ui ptu-report">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'Page Template Usage', 'page-template-usage' ); ?></h1>
+		<div class="wrap axle-ui aptu-report">
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'Axle Page Template Usage', 'axle-page-template-usage' ); ?></h1>
 			<hr class="wp-header-end">
 
 			<?php $this->render_notice(); ?>
 
-			<p class="axle-intro ptu-report__intro">
-				<?php esc_html_e( 'Every template your theme offers, how many items use it, and items that point at a template the theme no longer has.', 'page-template-usage' ); ?>
+			<p class="axle-intro aptu-report__intro">
+				<?php esc_html_e( 'Every template your theme offers, how many items use it, and items that point at a template the theme no longer has.', 'axle-page-template-usage' ); ?>
 			</p>
 
 			<?php if ( ! $post_types ) : ?>
 				<div class="axle-empty">
-					<p><?php esc_html_e( 'The active theme has no templates to choose from. When it offers some, they will show up here with how many items use each one.', 'page-template-usage' ); ?></p>
+					<p><?php esc_html_e( 'The active theme has no templates to choose from. When it offers some, they will show up here with how many items use each one.', 'axle-page-template-usage' ); ?></p>
 				</div>
 			<?php endif; ?>
 
@@ -159,53 +159,53 @@ final class ReportPage implements Service {
 			'missing' => 'error',
 		);
 		$labels      = array(
-			'default' => __( 'Default', 'page-template-usage' ),
-			'used'    => __( 'In use', 'page-template-usage' ),
-			'unused'  => __( 'Unused', 'page-template-usage' ),
-			'missing' => __( 'Missing', 'page-template-usage' ),
+			'default' => __( 'Default', 'axle-page-template-usage' ),
+			'used'    => __( 'In use', 'axle-page-template-usage' ),
+			'unused'  => __( 'Unused', 'axle-page-template-usage' ),
+			'missing' => __( 'Missing', 'axle-page-template-usage' ),
 		);
 		?>
-		<section class="axle-card ptu-report__section" aria-labelledby="tuc-<?php echo esc_attr( $post_type->name ); ?>">
+		<section class="axle-card aptu-report__section" aria-labelledby="tuc-<?php echo esc_attr( $post_type->name ); ?>">
 			<h2 class="axle-card__title" id="tuc-<?php echo esc_attr( $post_type->name ); ?>"><?php echo esc_html( $post_type->labels->name ); ?></h2>
 
 			<div class="axle-stats">
 				<?php /* translators: label under the number of templates. */ ?>
-				<?php $this->stat( count( $templates ), _n( 'template', 'templates', count( $templates ), 'page-template-usage' ), '' ); ?>
+				<?php $this->stat( count( $templates ), _n( 'template', 'templates', count( $templates ), 'axle-page-template-usage' ), '' ); ?>
 				<?php /* translators: label under the number of unused templates. */ ?>
-				<?php $this->stat( $unused, __( 'unused', 'page-template-usage' ), $unused ? 'warning' : '' ); ?>
+				<?php $this->stat( $unused, __( 'unused', 'axle-page-template-usage' ), $unused ? 'warning' : '' ); ?>
 				<?php
 				if ( 'page' === $post_type->name ) {
 					/* translators: label under the number of pages on missing templates. */
-					$missing_label = _n( 'page on a missing template', 'pages on missing templates', $missing, 'page-template-usage' );
+					$missing_label = _n( 'page on a missing template', 'pages on missing templates', $missing, 'axle-page-template-usage' );
 				} elseif ( 'post' === $post_type->name ) {
 					/* translators: label under the number of posts on missing templates. */
-					$missing_label = _n( 'post on a missing template', 'posts on missing templates', $missing, 'page-template-usage' );
+					$missing_label = _n( 'post on a missing template', 'posts on missing templates', $missing, 'axle-page-template-usage' );
 				} else {
 					/* translators: label under the number of items on missing templates. */
-					$missing_label = _n( 'item on a missing template', 'items on missing templates', $missing, 'page-template-usage' );
+					$missing_label = _n( 'item on a missing template', 'items on missing templates', $missing, 'axle-page-template-usage' );
 				}
 				$this->stat( $missing, $missing_label, $missing ? 'error' : '' );
 				?>
 			</div>
 
-			<table class="widefat striped ptu-table">
+			<table class="widefat striped aptu-table">
 				<thead>
 					<tr>
-						<th scope="col"><?php esc_html_e( 'Template', 'page-template-usage' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Template', 'axle-page-template-usage' ); ?></th>
 						<th scope="col" class="num"><?php echo esc_html( $post_type->labels->name ); ?></th>
-						<th scope="col"><?php esc_html_e( 'Status', 'page-template-usage' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Status', 'axle-page-template-usage' ); ?></th>
 						<?php if ( $can_edit ) : ?>
-							<th scope="col"><?php esc_html_e( 'Move everything to', 'page-template-usage' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Move everything to', 'axle-page-template-usage' ); ?></th>
 						<?php endif; ?>
 					</tr>
 				</thead>
 				<tbody>
 					<?php foreach ( $rows as $row ) : ?>
-						<tr class="ptu-row ptu-row--<?php echo esc_attr( $row['status'] ); ?>" data-template="<?php echo esc_attr( $row['slug'] ); ?>">
+						<tr class="aptu-row aptu-row--<?php echo esc_attr( $row['status'] ); ?>" data-template="<?php echo esc_attr( $row['slug'] ); ?>">
 							<td>
 								<strong><?php echo esc_html( $row['name'] ); ?></strong>
 								<?php if ( 'default' !== $row['status'] && 'missing' !== $row['status'] ) : ?>
-									<code class="ptu-slug"><?php echo esc_html( $row['slug'] ); ?></code>
+									<code class="aptu-slug"><?php echo esc_html( $row['slug'] ); ?></code>
 								<?php endif; ?>
 							</td>
 							<td class="num">
@@ -255,23 +255,23 @@ final class ReportPage implements Service {
 	 * @param array<string, string> $templates Templates to move to.
 	 */
 	private function render_reassign_form( string $post_type, string $from, array $templates ): void {
-		$targets = array( Templates::DEFAULT_TEMPLATE => __( 'Default', 'page-template-usage' ) ) + $templates;
+		$targets = array( Templates::DEFAULT_TEMPLATE => __( 'Default', 'axle-page-template-usage' ) ) + $templates;
 		unset( $targets[ $from ] );
-		$field_id = 'ptu-to-' . md5( $post_type . $from );
+		$field_id = 'aptu-to-' . md5( $post_type . $from );
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="ptu-reassign">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="aptu-reassign">
 			<?php wp_nonce_field( self::ACTION ); ?>
 			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
 			<input type="hidden" name="post_type" value="<?php echo esc_attr( $post_type ); ?>">
 			<input type="hidden" name="from" value="<?php echo esc_attr( $from ); ?>">
 			<?php /* translators: %s: template name or file. */ ?>
-			<label class="screen-reader-text" for="<?php echo esc_attr( $field_id ); ?>"><?php echo esc_html( sprintf( __( 'New template for everything on %s', 'page-template-usage' ), $this->templates->get_name( $post_type, $from ) ?? $from ) ); ?></label>
+			<label class="screen-reader-text" for="<?php echo esc_attr( $field_id ); ?>"><?php echo esc_html( sprintf( __( 'New template for everything on %s', 'axle-page-template-usage' ), $this->templates->get_name( $post_type, $from ) ?? $from ) ); ?></label>
 			<select name="to" id="<?php echo esc_attr( $field_id ); ?>">
 				<?php foreach ( $targets as $slug => $name ) : ?>
 					<option value="<?php echo esc_attr( (string) $slug ); ?>"><?php echo esc_html( $name ); ?></option>
 				<?php endforeach; ?>
 			</select>
-			<button type="submit" class="button" aria-describedby="<?php echo esc_attr( $field_id ); ?>"><?php esc_html_e( 'Move', 'page-template-usage' ); ?></button>
+			<button type="submit" class="button" aria-describedby="<?php echo esc_attr( $field_id ); ?>"><?php esc_html_e( 'Move', 'axle-page-template-usage' ); ?></button>
 		</form>
 		<?php
 	}
@@ -281,42 +281,42 @@ final class ReportPage implements Service {
 	 */
 	private function render_notice(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Display-only values set by our own redirect.
-		if ( isset( $_GET['ptu_error'] ) ) {
+		if ( isset( $_GET['aptu_error'] ) ) {
 			// Only known codes, so a crafted link cannot put its own text in a notice.
 			$errors = array(
-				'unknown_template' => __( 'The theme does not have that template.', 'page-template-usage' ),
+				'unknown_template' => __( 'The theme does not have that template.', 'axle-page-template-usage' ),
 			);
-			$code   = sanitize_key( wp_unslash( $_GET['ptu_error'] ) );
-			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $errors[ $code ] ?? __( 'The templates could not be changed.', 'page-template-usage' ) ) );
+			$code   = sanitize_key( wp_unslash( $_GET['aptu_error'] ) );
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $errors[ $code ] ?? __( 'The templates could not be changed.', 'axle-page-template-usage' ) ) );
 			return;
 		}
 
-		if ( ! isset( $_GET['ptu_moved'] ) ) {
+		if ( ! isset( $_GET['aptu_moved'] ) ) {
 			return;
 		}
 
-		$moved   = absint( $_GET['ptu_moved'] );
-		$left    = isset( $_GET['ptu_left'] ) ? absint( $_GET['ptu_left'] ) : 0;
-		$skipped = isset( $_GET['ptu_skipped'] ) ? absint( $_GET['ptu_skipped'] ) : 0;
-		$type    = isset( $_GET['ptu_type'] ) ? sanitize_key( wp_unslash( $_GET['ptu_type'] ) ) : 'page';
-		$to      = isset( $_GET['ptu_to'] ) ? sanitize_text_field( wp_unslash( $_GET['ptu_to'] ) ) : '';
+		$moved   = absint( $_GET['aptu_moved'] );
+		$left    = isset( $_GET['aptu_left'] ) ? absint( $_GET['aptu_left'] ) : 0;
+		$skipped = isset( $_GET['aptu_skipped'] ) ? absint( $_GET['aptu_skipped'] ) : 0;
+		$type    = isset( $_GET['aptu_type'] ) ? sanitize_key( wp_unslash( $_GET['aptu_type'] ) ) : 'page';
+		$to      = isset( $_GET['aptu_to'] ) ? sanitize_text_field( wp_unslash( $_GET['aptu_to'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$lines = array(
 			sprintf(
 				/* translators: 1: number of items, 2: template name. */
-				_n( 'Moved %1$s item to "%2$s".', 'Moved %1$s items to "%2$s".', $moved, 'page-template-usage' ),
+				_n( 'Moved %1$s item to "%2$s".', 'Moved %1$s items to "%2$s".', $moved, 'axle-page-template-usage' ),
 				number_format_i18n( $moved ),
 				(string) ( $this->templates->get_name( $type, $to ) ?? $to )
 			),
 		);
 		if ( $skipped ) {
 			/* translators: %s: number of items. */
-			$lines[] = sprintf( _n( 'Skipped %s item you are not allowed to edit.', 'Skipped %s items you are not allowed to edit.', $skipped, 'page-template-usage' ), number_format_i18n( $skipped ) );
+			$lines[] = sprintf( _n( 'Skipped %s item you are not allowed to edit.', 'Skipped %s items you are not allowed to edit.', $skipped, 'axle-page-template-usage' ), number_format_i18n( $skipped ) );
 		}
 		if ( $left ) {
 			/* translators: %s: number of items. */
-			$lines[] = sprintf( _n( '%s more is left. Click Move again, or run wp page-template-usage reassign for all of them at once.', '%s more are left. Click Move again, or run wp page-template-usage reassign for all of them at once.', $left, 'page-template-usage' ), number_format_i18n( $left ) );
+			$lines[] = sprintf( _n( '%s more is left. Click Move again, or run wp axle-page-template-usage reassign for all of them at once.', '%s more are left. Click Move again, or run wp axle-page-template-usage reassign for all of them at once.', $left, 'axle-page-template-usage' ), number_format_i18n( $left ) );
 		}
 
 		printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( implode( ' ', $lines ) ) );
@@ -335,24 +335,24 @@ final class ReportPage implements Service {
 		$back      = admin_url( 'themes.php?page=' . self::SLUG );
 
 		if ( ! $object || ! current_user_can( self::capability() ) || ! current_user_can( $object->cap->edit_posts ) ) {
-			wp_die( esc_html__( 'Sorry, you are not allowed to change templates for these items.', 'page-template-usage' ), 403 );
+			wp_die( esc_html__( 'Sorry, you are not allowed to change templates for these items.', 'axle-page-template-usage' ), 403 );
 		}
 
 		$result = $this->templates->reassign( $post_type, $from, $to, self::move_limit( $post_type ), true );
 
 		if ( is_wp_error( $result ) ) {
-			wp_safe_redirect( add_query_arg( 'ptu_error', 'unknown_template', $back ) );
+			wp_safe_redirect( add_query_arg( 'aptu_error', 'unknown_template', $back ) );
 			exit;
 		}
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'ptu_moved'   => $result['moved'],
-					'ptu_skipped' => $result['skipped'],
-					'ptu_left'    => $result['remaining'],
-					'ptu_type'    => $post_type,
-					'ptu_to'      => rawurlencode( $to ),
+					'aptu_moved'   => $result['moved'],
+					'aptu_skipped' => $result['skipped'],
+					'aptu_left'    => $result['remaining'],
+					'aptu_type'    => $post_type,
+					'aptu_to'      => rawurlencode( $to ),
 				),
 				$back
 			)

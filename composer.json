@@ -1,5 +1,5 @@
 {
-  "name": "aryanx/page-template-usage",
+  "name": "aryanx/axle-page-template-usage",
   "description": "Shows which template each page uses, with a filter, sorting and a usage report.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",

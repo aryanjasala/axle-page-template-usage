@@ -12,14 +12,14 @@ use AryanX\Axle\PageTemplateUsage\Admin\ReportPage;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Registers Page Template Usage's abilities on WordPress 6.9 and later.
+ * Registers Axle Page Template Usage's abilities on WordPress 6.9 and later.
  *
  * Useful after a theme switch: "which pages are on a template the theme no
  * longer has? Move them to the default."
  */
 final class Abilities implements Service {
 
-	public const CATEGORY = 'page-template-usage';
+	public const CATEGORY = 'axle-page-template-usage';
 
 	/**
 	 * Template lookups and moves.
@@ -50,7 +50,7 @@ final class Abilities implements Service {
 	}
 
 	/**
-	 * Registers the Page Template Usage category.
+	 * Registers the Axle Page Template Usage category.
 	 */
 	public function register_category(): void {
 		if ( ! function_exists( 'wp_register_ability_category' ) ) {
@@ -60,8 +60,8 @@ final class Abilities implements Service {
 		wp_register_ability_category(
 			self::CATEGORY,
 			array(
-				'label'       => __( 'Page Template Usage', 'page-template-usage' ),
-				'description' => __( 'Which page templates are in use, and which items point at templates the theme no longer has.', 'page-template-usage' ),
+				'label'       => __( 'Axle Page Template Usage', 'axle-page-template-usage' ),
+				'description' => __( 'Which page templates are in use, and which items point at templates the theme no longer has.', 'axle-page-template-usage' ),
 			)
 		);
 	}
@@ -73,14 +73,14 @@ final class Abilities implements Service {
 		$post_type = array(
 			'type'        => 'string',
 			'default'     => 'page',
-			'description' => __( 'Post type, such as page. Only types with templates.', 'page-template-usage' ),
+			'description' => __( 'Post type, such as page. Only types with templates.', 'axle-page-template-usage' ),
 		);
 
 		wp_register_ability(
 			self::CATEGORY . '/get-report',
 			array(
-				'label'               => __( 'Get template usage', 'page-template-usage' ),
-				'description'         => __( 'Every template the theme offers for a post type with how many items use it, plus templates items still point at that the theme no longer has (status missing).', 'page-template-usage' ),
+				'label'               => __( 'Get template usage', 'axle-page-template-usage' ),
+				'description'         => __( 'Every template the theme offers for a post type with how many items use it, plus templates items still point at that the theme no longer has (status missing).', 'axle-page-template-usage' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => array(
 					'type'                 => 'object',
@@ -134,8 +134,8 @@ final class Abilities implements Service {
 		wp_register_ability(
 			self::CATEGORY . '/reassign',
 			array(
-				'label'               => __( 'Move items to another template', 'page-template-usage' ),
-				'description'         => __( 'Moves items from one template to another, at most 500 per run, skipping items the user may not edit. Run it again while remaining is above 0.', 'page-template-usage' ),
+				'label'               => __( 'Move items to another template', 'axle-page-template-usage' ),
+				'description'         => __( 'Moves items from one template to another, at most 500 per run, skipping items the user may not edit. Run it again while remaining is above 0.', 'axle-page-template-usage' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => array(
 					'type'                 => 'object',
@@ -143,11 +143,11 @@ final class Abilities implements Service {
 						'post_type' => $post_type,
 						'from'      => array(
 							'type'        => 'string',
-							'description' => __( 'Template file or slug to move away from, default, or missing for every template the theme no longer has.', 'page-template-usage' ),
+							'description' => __( 'Template file or slug to move away from, default, or missing for every template the theme no longer has.', 'axle-page-template-usage' ),
 						),
 						'to'        => array(
 							'type'        => 'string',
-							'description' => __( 'Template the theme offers, or default.', 'page-template-usage' ),
+							'description' => __( 'Template the theme offers, or default.', 'axle-page-template-usage' ),
 						),
 					),
 					'required'             => array( 'from', 'to' ),
@@ -252,7 +252,7 @@ final class Abilities implements Service {
 
 		if ( ! $this->templates->uses_templates( $post_type ) ) {
 			/* translators: %s: post type name. */
-			return new \WP_Error( 'page_template_usage_no_templates', sprintf( __( 'The post type "%s" does not exist or has no templates.', 'page-template-usage' ), $post_type ) );
+			return new \WP_Error( 'axle_page_template_usage_no_templates', sprintf( __( 'The post type "%s" does not exist or has no templates.', 'axle-page-template-usage' ), $post_type ) );
 		}
 
 		return $post_type;

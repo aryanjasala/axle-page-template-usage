@@ -19,10 +19,10 @@ defined( 'ABSPATH' ) || exit;
  */
 final class ListColumn implements Service {
 
-	public const COLUMN    = 'page_template_usage';
-	public const QUERY_VAR = 'page_template_usage';
+	public const COLUMN    = 'axle_page_template_usage';
+	public const QUERY_VAR = 'axle_page_template_usage';
 
-	private const SORT_CLAUSE = 'page_template_usage_sort';
+	private const SORT_CLAUSE = 'axle_page_template_usage_sort';
 
 	/**
 	 * Template data.
@@ -90,28 +90,28 @@ final class ListColumn implements Service {
 		 * @param string $post_type Post type of the list.
 		 * @param int    $missing   Items on missing templates.
 		 */
-		if ( ! $post_type || ! $missing || ! apply_filters( 'page_template_usage_show_missing_notice', true, $post_type->name, $missing ) ) {
+		if ( ! $post_type || ! $missing || ! apply_filters( 'axle_page_template_usage_show_missing_notice', true, $post_type->name, $missing ) ) {
 			return;
 		}
 
 		if ( 'page' === $post_type->name ) {
 			/* translators: %s: number of pages. */
-			$message = _n( '%s page uses a template the theme no longer has, so it shows the default template.', '%s pages use a template the theme no longer has, so they show the default template.', $missing, 'page-template-usage' );
+			$message = _n( '%s page uses a template the theme no longer has, so it shows the default template.', '%s pages use a template the theme no longer has, so they show the default template.', $missing, 'axle-page-template-usage' );
 		} elseif ( 'post' === $post_type->name ) {
 			/* translators: %s: number of posts. */
-			$message = _n( '%s post uses a template the theme no longer has, so it shows the default template.', '%s posts use a template the theme no longer has, so they show the default template.', $missing, 'page-template-usage' );
+			$message = _n( '%s post uses a template the theme no longer has, so it shows the default template.', '%s posts use a template the theme no longer has, so they show the default template.', $missing, 'axle-page-template-usage' );
 		} else {
 			/* translators: %s: number of items. */
-			$message = _n( '%s item uses a template the theme no longer has, so it shows the default template.', '%s items use a template the theme no longer has, so they show the default template.', $missing, 'page-template-usage' );
+			$message = _n( '%s item uses a template the theme no longer has, so it shows the default template.', '%s items use a template the theme no longer has, so they show the default template.', $missing, 'axle-page-template-usage' );
 		}
 
 		printf(
-			'<div class="notice notice-warning ptu-missing-notice"><p>%s <a href="%s">%s</a> &middot; <a href="%s">%s</a></p></div>',
+			'<div class="notice notice-warning aptu-missing-notice"><p>%s <a href="%s">%s</a> &middot; <a href="%s">%s</a></p></div>',
 			esc_html( sprintf( $message, number_format_i18n( $missing ) ) ),
 			esc_url( $this->filter_url( $post_type->name, Templates::MISSING ) ),
-			esc_html__( 'Show them', 'page-template-usage' ),
+			esc_html__( 'Show them', 'axle-page-template-usage' ),
 			esc_url( admin_url( 'themes.php?page=' . ReportPage::SLUG ) ),
-			esc_html__( 'Fix in Page Template Usage', 'page-template-usage' )
+			esc_html__( 'Fix in Axle Page Template Usage', 'axle-page-template-usage' )
 		);
 	}
 
@@ -139,7 +139,7 @@ final class ListColumn implements Service {
 	 * @return array<string, string>
 	 */
 	public function add_column( array $columns ): array {
-		$label   = __( 'Template', 'page-template-usage' );
+		$label   = __( 'Template', 'axle-page-template-usage' );
 		$updated = array();
 
 		foreach ( $columns as $key => $title ) {
@@ -172,7 +172,7 @@ final class ListColumn implements Service {
 		 * @param bool   $sortable  Default true.
 		 * @param string $post_type Post type of the list.
 		 */
-		if ( apply_filters( 'page_template_usage_sortable', true, $screen ? (string) $screen->post_type : '' ) ) {
+		if ( apply_filters( 'axle_page_template_usage_sortable', true, $screen ? (string) $screen->post_type : '' ) ) {
 			$columns[ self::COLUMN ] = self::COLUMN;
 		}
 
@@ -196,7 +196,7 @@ final class ListColumn implements Service {
 
 		if ( $this->templates->is_default( $slug ) ) {
 			printf(
-				'<a href="%s" class="ptu-default">%s</a>',
+				'<a href="%s" class="aptu-default">%s</a>',
 				esc_url( $this->filter_url( $post_type, Templates::DEFAULT_TEMPLATE ) ),
 				esc_html( (string) $name )
 			);
@@ -209,10 +209,10 @@ final class ListColumn implements Service {
 		}
 
 		printf(
-			'<a href="%1$s" class="ptu-missing" title="%2$s"><span class="dashicons dashicons-warning" aria-hidden="true"></span>%3$s</a><code class="ptu-slug">%4$s</code>',
+			'<a href="%1$s" class="aptu-missing" title="%2$s"><span class="dashicons dashicons-warning" aria-hidden="true"></span>%3$s</a><code class="aptu-slug">%4$s</code>',
 			esc_url( $this->filter_url( $post_type, Templates::MISSING ) ),
-			esc_attr__( 'The active theme no longer has this template, so WordPress shows the default template instead.', 'page-template-usage' ),
-			esc_html__( 'Missing template', 'page-template-usage' ),
+			esc_attr__( 'The active theme no longer has this template, so WordPress shows the default template instead.', 'axle-page-template-usage' ),
+			esc_html__( 'Missing template', 'axle-page-template-usage' ),
 			esc_html( $slug )
 		);
 	}
@@ -227,7 +227,7 @@ final class ListColumn implements Service {
 	 */
 	public function render_filter( string $post_type ): void {
 		$current = $this->requested_template();
-		$options = array( '' => __( 'All templates', 'page-template-usage' ) );
+		$options = array( '' => __( 'All templates', 'axle-page-template-usage' ) );
 
 		foreach ( $this->templates->get_report( $post_type ) as $row ) {
 			if ( 'missing' === $row['status'] ) {
@@ -240,14 +240,14 @@ final class ListColumn implements Service {
 		if ( $missing ) {
 			$options[ Templates::MISSING ] = sprintf(
 				/* translators: %d: number of posts. */
-				__( 'Missing template (%d)', 'page-template-usage' ),
+				__( 'Missing template (%d)', 'axle-page-template-usage' ),
 				$missing
 			);
 		}
 
 		printf(
 			'<label for="filter-by-template" class="screen-reader-text">%s</label><select name="%s" id="filter-by-template">',
-			esc_html__( 'Filter by template', 'page-template-usage' ),
+			esc_html__( 'Filter by template', 'axle-page-template-usage' ),
 			esc_attr( self::QUERY_VAR )
 		);
 
@@ -308,7 +308,7 @@ final class ListColumn implements Service {
 	 * Column styles.
 	 */
 	public function enqueue_styles(): void {
-		wp_enqueue_style( 'page-template-usage', plugins_url( 'assets/admin.css', PLUGIN_FILE ), array(), VERSION );
+		wp_enqueue_style( 'axle-page-template-usage', plugins_url( 'assets/admin.css', PLUGIN_FILE ), array(), VERSION );
 	}
 
 	/**

@@ -2,7 +2,7 @@
 parameters:
 	level: 6
 	paths:
-		- page-template-usage.php
+		- axle-page-template-usage.php
 		- src
 	scanFiles:
 		- vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php

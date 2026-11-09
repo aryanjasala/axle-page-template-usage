@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Page Template Usage does not work the way the docs say.
+description: Something in Axle Page Template Usage does not work the way the docs say.
 labels: [bug]
 body:
   - type: textarea
@@ -22,7 +22,7 @@ body:
   - type: input
     id: plugin
     attributes:
-      label: Page Template Usage version
+      label: Axle Page Template Usage version
       placeholder: "1.1.0"
     validations:
       required: true

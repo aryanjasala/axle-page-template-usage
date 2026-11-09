@@ -4,18 +4,18 @@
   "exclude": [],
   "screens": [
     {
-      "name": "Appearance > Page Template Usage, no pages yet",
-      "url": "/wp-admin/themes.php?page=page-template-usage"
+      "name": "Appearance > Axle Page Template Usage, no pages yet",
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage"
     },
     {
-      "name": "Appearance > Page Template Usage with pages on a missing template",
+      "name": "Appearance > Axle Page Template Usage with pages on a missing template",
       "setup": [
         { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Home", "--porcelain"], "save": "home" },
         { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=About us", "--meta_input={\"_wp_page_template\":\"page-no-title\"}", "--porcelain"], "save": "about" },
         { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Spring sale", "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}", "--porcelain"], "save": "sale" }
       ],
-      "url": "/wp-admin/themes.php?page=page-template-usage",
-      "steps": [{ "waitFor": ".ptu-table" }],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage",
+      "steps": [{ "waitFor": ".aptu-table" }],
       "cleanup": [["post", "delete", "{home}", "{about}", "{sale}", "--force"]]
     },
     {
@@ -26,8 +26,8 @@
         { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Spring sale", "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}", "--porcelain"], "save": "sale" }
       ],
       "url": "/wp-admin/edit.php?post_type=page",
-      "steps": [{ "waitFor": ".ptu-missing-notice" }],
-      "include": [".ptu-missing-notice", "#filter-by-template", ".column-page_template_usage"],
+      "steps": [{ "waitFor": ".aptu-missing-notice" }],
+      "include": [".aptu-missing-notice", "#filter-by-template", ".column-axle_page_template_usage"],
       "cleanup": [["post", "delete", "{home}", "{about}", "{sale}", "--force"]]
     },
     {
@@ -35,8 +35,8 @@
       "setup": [
         { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Spring sale", "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}", "--porcelain"], "save": "sale" }
       ],
-      "url": "/wp-admin/edit.php?post_type=page&page_template_usage=__missing",
-      "include": ["#filter-by-template", ".column-page_template_usage"],
+      "url": "/wp-admin/edit.php?post_type=page&axle_page_template_usage=__missing",
+      "include": ["#filter-by-template", ".column-axle_page_template_usage"],
       "cleanup": [["post", "delete", "{sale}", "--force"]]
     }
   ],

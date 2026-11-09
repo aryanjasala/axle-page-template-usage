@@ -1,6 +1,6 @@
 <?php
 /**
- * `wp page-template-usage` commands.
+ * `wp axle-page-template-usage` commands.
  *
  * @package AryanX\Axle\PageTemplateUsage
  */
@@ -51,8 +51,8 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp page-template-usage list
-	 *     wp page-template-usage list --status=missing --format=csv
+	 *     wp axle-page-template-usage list
+	 *     wp axle-page-template-usage list --status=missing --format=csv
 	 *
 	 * @subcommand list
 	 *
@@ -94,8 +94,8 @@ final class Command {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp page-template-usage reassign missing default
-	 *     wp page-template-usage reassign templates/full-width.php page-wide
+	 *     wp axle-page-template-usage reassign missing default
+	 *     wp axle-page-template-usage reassign templates/full-width.php page-wide
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Named arguments.
