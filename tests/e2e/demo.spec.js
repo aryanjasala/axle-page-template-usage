@@ -27,9 +27,9 @@ test( 'demo: find the pages on a missing template and move them', async ( { brow
 			await page.goto( '/wp-admin/edit.php?post_type=page&orderby=title&order=asc' );
 			await demo.start();
 			await demo.pause( 1200 );
-			await demo.moveTo( page.locator( `#post-${ ids[ 1 ] } .column-page_template_usage` ) );
+			await demo.moveTo( page.locator( `#post-${ ids[ 1 ] } .column-axle_page_template_usage` ) );
 			await demo.pause( 900 );
-			await demo.moveTo( page.locator( `#post-${ ids[ 4 ] } .column-page_template_usage` ) );
+			await demo.moveTo( page.locator( `#post-${ ids[ 4 ] } .column-axle_page_template_usage` ) );
 			await demo.pause( 1200 );
 
 			// Only the pages whose template is gone.
@@ -38,18 +38,18 @@ test( 'demo: find the pages on a missing template and move them', async ( { brow
 			await expect( page.locator( '#the-list tr' ) ).toHaveCount( 2 );
 			await demo.pause( 1600 );
 
-			// Move them to a template the theme has, from Appearance > Page Template Usage.
+			// Move them to a template the theme has, from Appearance > Axle Page Template Usage.
 			await demo.moveTo( page.locator( '#menu-appearance > a' ) );
-			const report = page.locator( '#menu-appearance .wp-submenu a[href$="page=page-template-usage"]' );
+			const report = page.locator( '#menu-appearance .wp-submenu a[href$="page=axle-page-template-usage"]' );
 			try {
 				await expect( report ).toBeVisible( { timeout: 3000 } );
 				await demo.pause( 400 );
 				await demo.click( report, 300 );
 			} catch ( error ) {
 				// The flyout did not open on hover.
-				await page.goto( '/wp-admin/themes.php?page=page-template-usage' );
+				await page.goto( '/wp-admin/themes.php?page=axle-page-template-usage' );
 			}
-			const section = page.locator( '.ptu-report__section', { has: page.getByRole( 'heading', { name: 'Pages' } ) } );
+			const section = page.locator( '.aptu-report__section', { has: page.getByRole( 'heading', { name: 'Pages' } ) } );
 			const missing = section.locator( 'tr[data-template="templates/landing.php"]' );
 			await expect( missing ).toBeVisible();
 			await demo.pause( 1800 );
@@ -58,9 +58,9 @@ test( 'demo: find the pages on a missing template and move them', async ( { brow
 			await expect( page.locator( '.notice-success' ) ).toContainText( 'Moved 2 items' );
 			await demo.pause( 2000 );
 
-			await page.goto( '/wp-admin/edit.php?post_type=page&orderby=page_template_usage&order=asc' );
-			await expect( page.locator( '.ptu-missing-notice' ) ).toHaveCount( 0 );
-			await demo.moveTo( page.locator( `#post-${ ids[ 4 ] } .column-page_template_usage` ) );
+			await page.goto( '/wp-admin/edit.php?post_type=page&orderby=axle_page_template_usage&order=asc' );
+			await expect( page.locator( '.aptu-missing-notice' ) ).toHaveCount( 0 );
+			await demo.moveTo( page.locator( `#post-${ ids[ 4 ] } .column-axle_page_template_usage` ) );
 			await demo.pause( 1500 );
 		} );
 	} finally {

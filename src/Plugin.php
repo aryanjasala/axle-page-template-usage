@@ -89,7 +89,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'page-template-usage', new Command( $this->templates ) );
+			\WP_CLI::add_command( 'axle-page-template-usage', new Command( $this->templates ) );
 		}
 	}
 }

@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name:       Page Template Usage
- * Plugin URI:        https://wordpress.org/plugins/page-template-usage/
+ * Plugin Name:       Axle Page Template Usage
+ * Plugin URI:        https://wordpress.org/plugins/axle-page-template-usage/
  * Description:       Shows which template each page uses, lets you filter and sort by template, and finds pages whose template no longer exists. Works with classic and block themes.
  * Version:           2.0.0
  * Requires at least: 6.6
@@ -10,7 +10,7 @@
  * Author URI:        https://profiles.wordpress.org/aryanjasala/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       page-template-usage
+ * Text Domain:       axle-page-template-usage
  *
  * @package AryanX\Axle\PageTemplateUsage
  */

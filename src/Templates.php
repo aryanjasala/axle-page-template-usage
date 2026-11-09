@@ -19,7 +19,7 @@ final class Templates implements Service {
 	public const DEFAULT_TEMPLATE = 'default';
 	public const MISSING          = '__missing';
 
-	private const CACHE_GROUP = 'page-template-usage';
+	private const CACHE_GROUP = 'axle-page-template-usage';
 
 	/**
 	 * Posts moved per query in reassign().
@@ -71,7 +71,7 @@ final class Templates implements Service {
 	 */
 	public function get_name( string $post_type, string $slug ): ?string {
 		if ( $this->is_default( $slug ) ) {
-			return __( 'Default', 'page-template-usage' );
+			return __( 'Default', 'axle-page-template-usage' );
 		}
 
 		$templates = $this->get_templates( $post_type );
@@ -194,14 +194,14 @@ final class Templates implements Service {
 		);
 
 		/**
-		 * Filters the post types Page Template Usage looks at.
+		 * Filters the post types Axle Page Template Usage looks at.
 		 *
 		 * Post types without templates are left out on their own. Use this to
 		 * skip a huge post type, or to add one that is hidden from wp-admin.
 		 *
 		 * @param string[] $post_types Post type names.
 		 */
-		$candidates = (array) apply_filters( 'page_template_usage_post_types', array_values( $candidates ) );
+		$candidates = (array) apply_filters( 'axle_page_template_usage_post_types', array_values( $candidates ) );
 
 		return array_values(
 			array_filter(
@@ -224,7 +224,7 @@ final class Templates implements Service {
 		$rows   = array(
 			array(
 				'slug'   => self::DEFAULT_TEMPLATE,
-				'name'   => __( 'Default', 'page-template-usage' ),
+				'name'   => __( 'Default', 'axle-page-template-usage' ),
 				'count'  => $this->get_default_count( $post_type ),
 				'status' => 'default',
 			),
@@ -309,7 +309,7 @@ final class Templates implements Service {
 	 */
 	public function reassign( string $post_type, string $from, string $to, int $limit = 0, bool $check_user = false ) {
 		if ( ! $this->is_default( $to ) && ! isset( $this->get_templates( $post_type )[ $to ] ) ) {
-			return new \WP_Error( 'page_template_usage_unknown_template', __( 'The theme does not have that template.', 'page-template-usage' ) );
+			return new \WP_Error( 'axle_page_template_usage_unknown_template', __( 'The theme does not have that template.', 'axle-page-template-usage' ) );
 		}
 
 		$value   = $this->is_default( $to ) ? self::DEFAULT_TEMPLATE : $to;
@@ -324,7 +324,7 @@ final class Templates implements Service {
 		 * @param string $to        Template they move to.
 		 * @param int    $limit     Most items this run moves, 0 for all.
 		 */
-		do_action( 'page_template_usage_before_reassign', $post_type, $from, $value, $limit );
+		do_action( 'axle_page_template_usage_before_reassign', $post_type, $from, $value, $limit );
 
 		do {
 			$batch = $limit ? min( self::BATCH, $limit - $moved ) : self::BATCH;
@@ -351,7 +351,7 @@ final class Templates implements Service {
 				 * @param string $to        Template they are on now.
 				 * @param int[]  $post_ids  Posts in this batch.
 				 */
-				do_action( 'page_template_usage_reassigned', $post_type, $from, $value, $done );
+				do_action( 'axle_page_template_usage_reassigned', $post_type, $from, $value, $done );
 			}
 
 			$count = count( $ids );
