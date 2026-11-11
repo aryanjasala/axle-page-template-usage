@@ -151,7 +151,12 @@ test.describe( 'Axle Page Template Usage', () => {
 		const path = ( name ) => `/wp-abilities/v1/abilities/axle-page-template-usage/${ name }/run`;
 
 		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=axle-page-template-usage' );
-		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [ 'axle-page-template-usage/get-report', 'axle-page-template-usage/reassign' ] );
+		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [
+			'axle-page-template-usage/check-theme',
+			'axle-page-template-usage/get-history',
+			'axle-page-template-usage/get-report',
+			'axle-page-template-usage/reassign',
+		] );
 		// MCP clients only list abilities marked public.
 		expect( JSON.parse( wpEval( `echo wp_json_encode( array_values( array_filter( array_map( function ( $ability ) { $meta = $ability->get_meta(); return ( ! empty( $meta['public'] ) && ! empty( $meta['mcp']['public'] ) ) ? '' : $ability->get_name(); }, wp_get_abilities() ), function ( $name ) { return 0 === strpos( $name, 'axle-page-template-usage/' ); } ) ) );` ) ) ).toEqual( [] );
 
@@ -162,7 +167,8 @@ test.describe( 'Axle Page Template Usage', () => {
 
 		const moved = await rest( 'POST', path( 'reassign' ), { input: { from: 'missing', to: NO_TITLE } } );
 		expect( moved.status ).toBe( 200 );
-		expect( moved.body ).toEqual( { moved: 1, skipped: 0, remaining: 0 } );
+		expect( moved.body ).toMatchObject( { moved: 1, skipped: 0, remaining: 0 } );
+		expect( moved.body.batch ).toMatch( /^[a-f0-9]{32}$/ );
 		expect( wp( 'post', 'meta', 'get', String( ids.gone ), '_wp_page_template' ) ).toBe( NO_TITLE );
 		expect( ( await rest( 'GET', path( 'get-report' ) ) ).body.missing ).toBe( 0 );
 

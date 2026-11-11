@@ -38,8 +38,10 @@ WordPress lets you pick a template for each page but never shows which one is in
 - **Sort** the list by template
 - **Missing templates** flagged in red, with a notice above the list
 - **Appearance > Axle Page Template Usage**: every template on one screen, with a one-click **Move everything to** for each
+- **Check a theme before switching**: lists every page that would lose its template under an installed theme, lets you choose what to use instead, and applies the plan when the theme is activated, with an **Undo**
+- **Template history**: every template change with who, when and where it came from, filters, a link per page, and undo for one change or a whole batch
 - Classic themes (PHP templates, `Template Post Type`) and block themes (`theme.json` and Site Editor templates)
-- No settings, nothing stored in the database
+- No settings. The history keeps the latest 10,000 changes (and deletes entries after a year), and the privacy tools cover it
 
 ## Install
 
@@ -61,6 +63,13 @@ Find every page on a template the theme no longer has, then move them all to the
 ```sh
 wp axle-page-template-usage list --status=missing
 wp axle-page-template-usage reassign missing default
+```
+
+Check a theme before you switch to it, then save what to use instead:
+
+```sh
+wp axle-page-template-usage check-theme twentytwentyfour
+wp axle-page-template-usage set-mapping twentytwentyfour missing default
 ```
 
 ## Screenshots
@@ -93,11 +102,18 @@ axle-page-template-usage.php    plugin header and PSR-4 autoloader
 src/
 ├── Plugin.php               creates the services
 ├── Templates.php            templates, usage counts, reassigning
+├── History.php              template history table, recording, trimming, undo
+├── ThemeCheck.php           what a theme switch would lose, saved plans, applying them
+├── Privacy.php              exporter, eraser, policy text
+├── Abilities.php            abilities for the Abilities API and MCP
 ├── Admin/
-│   ├── ListColumn.php       column, filter, sorting, missing-template notice
-│   └── ReportPage.php       Appearance > Axle Page Template Usage
+│   ├── ListColumn.php       column, filter, sorting, missing-template notice, history row action
+│   ├── ReportPage.php       Appearance > Axle Page Template Usage, tabs
+│   ├── ThemeCheckTab.php    Check a theme tab, switch notice, link on Themes
+│   └── HistoryTab.php       History tab, undo handlers
 └── Cli/Command.php          wp axle-page-template-usage
-assets/admin.css
+assets/admin.css, admin.js
+uninstall.php
 tests/
 ├── Unit/                    PHPUnit
 └── e2e/                     Playwright specs and the Docker site
@@ -119,7 +135,6 @@ Small plugins that each fill one gap in WordPress, all free with no pro version.
 | <img src="https://raw.githubusercontent.com/aryanjasala/agent-governance/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Agent Governance](https://github.com/aryanjasala/agent-governance) | Hold risky AI agent calls for approval, preview what they change, and roll back a session |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-ai-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle AI Guard](https://github.com/aryanjasala/axle-ai-guard) | See and control every AI call your plugins make: cost, data sent, budgets and a kill switch |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-config-sync/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Config Sync](https://github.com/aryanjasala/axle-config-sync) | Keep settings in git, diff them against the live site, apply with a preview and undo |
-| <img src="https://raw.githubusercontent.com/aryanjasala/axle-headers/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Headers](https://github.com/aryanjasala/axle-headers) | Security headers and a Content Security Policy that learns what your site loads, then enforces it with nonces |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-leftovers/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Leftovers](https://github.com/aryanjasala/axle-leftovers) | Find what deleted plugins left behind, see who owns it and why, and clean it up with undo |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-license-tracker/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle License Tracker](https://github.com/aryanjasala/axle-license-tracker) | See which premium plugins are licensed, which lapsed and stopped getting updates, and what renews when |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-review/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Review](https://github.com/aryanjasala/axle-review) | Share drafts through private links and collect outside feedback as block Notes |

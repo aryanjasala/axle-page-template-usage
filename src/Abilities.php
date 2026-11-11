@@ -29,12 +29,30 @@ final class Abilities implements Service {
 	private Templates $templates;
 
 	/**
+	 * Theme check.
+	 *
+	 * @var ThemeCheck
+	 */
+	private ThemeCheck $theme_check;
+
+	/**
+	 * Template history.
+	 *
+	 * @var History
+	 */
+	private History $history;
+
+	/**
 	 * Sets up the abilities.
 	 *
-	 * @param Templates $templates Template lookups and moves.
+	 * @param Templates  $templates   Template lookups and moves.
+	 * @param ThemeCheck $theme_check Theme check.
+	 * @param History    $history     Template history.
 	 */
-	public function __construct( Templates $templates ) {
-		$this->templates = $templates;
+	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history ) {
+		$this->templates   = $templates;
+		$this->theme_check = $theme_check;
+		$this->history     = $history;
 	}
 
 	/**
@@ -159,6 +177,10 @@ final class Abilities implements Service {
 						'moved'     => array( 'type' => 'integer' ),
 						'skipped'   => array( 'type' => 'integer' ),
 						'remaining' => array( 'type' => 'integer' ),
+						'batch'     => array(
+							'type'        => 'string',
+							'description' => 'Batch ID of this move in the template history, empty when nothing moved.',
+						),
 					),
 				),
 				'execute_callback'    => array( $this, 'reassign' ),
@@ -176,6 +198,211 @@ final class Abilities implements Service {
 					'mcp'          => array( 'public' => true ),
 				),
 			)
+		);
+
+		wp_register_ability(
+			self::CATEGORY . '/check-theme',
+			array(
+				'label'               => __( 'Check a theme before switching', 'axle-page-template-usage' ),
+				'description'         => __( 'For an installed theme that is not active: which items use a template the theme does not have, grouped by template with counts. Read-only. Use it before switching themes.', 'axle-page-template-usage' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'theme'     => array(
+							'type'        => 'string',
+							'description' => __( 'Folder name of an installed theme that is not active, such as twentytwentyfour.', 'axle-page-template-usage' ),
+						),
+						'post_type' => array(
+							'type'        => 'string',
+							'description' => __( 'Only this post type. Default: every post type with templates.', 'axle-page-template-usage' ),
+						),
+					),
+					'required'             => array( 'theme' ),
+					'additionalProperties' => false,
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'theme'     => array( 'type' => 'string' ),
+						'name'      => array( 'type' => 'string' ),
+						'total'     => array(
+							'type'        => 'integer',
+							'description' => 'Items that would lose their template.',
+						),
+						'templates' => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'post_type'       => array( 'type' => 'string' ),
+									'slug'            => array( 'type' => 'string' ),
+									'name'            => array( 'type' => 'string' ),
+									'count'           => array( 'type' => 'integer' ),
+									'already_missing' => array( 'type' => 'boolean' ),
+									'planned'         => array(
+										'type'        => 'string',
+										'description' => 'Template saved to use instead on activation, or empty.',
+									),
+								),
+							),
+						),
+					),
+				),
+				'execute_callback'    => array( $this, 'check_theme' ),
+				'permission_callback' => static function (): bool {
+					return current_user_can( ReportPage::capability() );
+				},
+				'meta'                => array(
+					'annotations'  => array(
+						'readonly'   => true,
+						'idempotent' => true,
+					),
+					'show_in_rest' => true,
+					'public'       => true,
+					'mcp'          => array( 'public' => true ),
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::CATEGORY . '/get-history',
+			array(
+				'label'               => __( 'Get template history', 'axle-page-template-usage' ),
+				'description'         => __( 'Recorded template changes, newest first: post, old and new template, user, source, time and batch, and whether each can still be undone. Read-only.', 'axle-page-template-usage' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'post_id' => array( 'type' => 'integer' ),
+						'source'  => array(
+							'type' => 'string',
+							'enum' => History::SOURCES,
+						),
+						'batch'   => array( 'type' => 'string' ),
+						'limit'   => array(
+							'type'    => 'integer',
+							'default' => 50,
+							'maximum' => 200,
+						),
+					),
+					'additionalProperties' => false,
+					'default'              => array(),
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'total'   => array( 'type' => 'integer' ),
+						'entries' => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'id'       => array( 'type' => 'integer' ),
+									'post_id'  => array( 'type' => 'integer' ),
+									'from'     => array( 'type' => 'string' ),
+									'to'       => array( 'type' => 'string' ),
+									'user_id'  => array( 'type' => 'integer' ),
+									'source'   => array( 'type' => 'string' ),
+									'batch'    => array( 'type' => 'string' ),
+									'when'     => array( 'type' => 'string' ),
+									'undoable' => array( 'type' => 'boolean' ),
+								),
+							),
+						),
+					),
+				),
+				'execute_callback'    => array( $this, 'get_history' ),
+				'permission_callback' => static function (): bool {
+					return current_user_can( ReportPage::capability() );
+				},
+				'meta'                => array(
+					'annotations'  => array(
+						'readonly'   => true,
+						'idempotent' => true,
+					),
+					'show_in_rest' => true,
+					'public'       => true,
+					'mcp'          => array( 'public' => true ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Ability: what a theme switch would do to templates.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array|\WP_Error
+	 */
+	public function check_theme( $input = null ) {
+		$input     = (array) $input;
+		$theme     = (string) ( $input['theme'] ?? '' );
+		$post_type = isset( $input['post_type'] ) && '' !== $input['post_type'] ? sanitize_key( (string) $input['post_type'] ) : null;
+		$result    = $this->theme_check->check( $theme, $post_type );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		$mapping = $this->theme_check->get_mapping( $theme );
+		$rows    = array();
+		foreach ( $result['groups'] as $type => $group ) {
+			foreach ( $group as $row ) {
+				$rows[] = array(
+					'post_type'       => (string) $type,
+					'slug'            => $row['slug'],
+					'name'            => $row['name'],
+					'count'           => $row['count'],
+					'already_missing' => $row['already_missing'],
+					'planned'         => (string) ( $mapping[ $type ][ $row['slug'] ] ?? '' ),
+				);
+			}
+		}
+
+		return array(
+			'theme'     => $result['theme']['stylesheet'],
+			'name'      => $result['theme']['name'],
+			'total'     => $result['total'],
+			'templates' => $rows,
+		);
+	}
+
+	/**
+	 * Ability: recorded template changes.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array
+	 */
+	public function get_history( $input = null ): array {
+		$input  = (array) $input;
+		$result = $this->history->query(
+			array(
+				'post_id'  => absint( $input['post_id'] ?? 0 ),
+				'source'   => sanitize_key( (string) ( $input['source'] ?? '' ) ),
+				'batch'    => preg_replace( '/[^a-f0-9-]/', '', strtolower( (string) ( $input['batch'] ?? '' ) ) ),
+				'per_page' => min( 200, max( 1, absint( $input['limit'] ?? 50 ) ) ),
+			)
+		);
+
+		$entries = array();
+		foreach ( $result['items'] as $entry ) {
+			$entries[] = array(
+				'id'       => (int) $entry->id,
+				'post_id'  => (int) $entry->post_id,
+				'from'     => '' === $entry->old_template ? Templates::DEFAULT_TEMPLATE : (string) $entry->old_template,
+				'to'       => '' === $entry->new_template ? Templates::DEFAULT_TEMPLATE : (string) $entry->new_template,
+				'user_id'  => (int) $entry->user_id,
+				'source'   => (string) $entry->source,
+				'batch'    => (string) $entry->batch,
+				'when'     => (string) $entry->created,
+				'undoable' => null === $this->history->blocker( $entry ),
+			);
+		}
+
+		return array(
+			'total'   => $result['total'],
+			'entries' => $entries,
 		);
 	}
 
@@ -226,7 +453,7 @@ final class Abilities implements Service {
 		$from  = (string) ( $input['from'] ?? '' );
 		$from  = 'missing' === $from ? Templates::MISSING : $from;
 
-		return $this->templates->reassign( $post_type, $from, (string) ( $input['to'] ?? '' ), ReportPage::move_limit( $post_type ), true );
+		return $this->templates->reassign( $post_type, $from, (string) ( $input['to'] ?? '' ), ReportPage::move_limit( $post_type ), true, 'ability' );
 	}
 
 	/**
