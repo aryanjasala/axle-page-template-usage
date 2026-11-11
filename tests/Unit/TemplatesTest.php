@@ -137,6 +137,7 @@ final class TemplatesTest extends TestCase {
 				'moved'     => 2,
 				'skipped'   => 0,
 				'remaining' => 0,
+				'batch'     => '',
 			),
 			$this->templates->reassign( 'page', Templates::MISSING, 'page-wide' )
 		);

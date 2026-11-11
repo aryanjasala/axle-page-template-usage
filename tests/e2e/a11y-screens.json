@@ -1,6 +1,8 @@
 {
   "$comment": "Screens tests/e2e/a11y.spec.js checks with axe-core. This file belongs to the plugin: apply-template.py only writes it when it is missing. The fields are described in docs/DEVELOPMENT.md.",
-  "include": ["#wpbody-content"],
+  "include": [
+    "#wpbody-content"
+  ],
   "exclude": [],
   "screens": [
     {
@@ -10,34 +12,473 @@
     {
       "name": "Appearance > Axle Page Template Usage with pages on a missing template",
       "setup": [
-        { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Home", "--porcelain"], "save": "home" },
-        { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=About us", "--meta_input={\"_wp_page_template\":\"page-no-title\"}", "--porcelain"], "save": "about" },
-        { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Spring sale", "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}", "--porcelain"], "save": "sale" }
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Home",
+            "--porcelain"
+          ],
+          "save": "home"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=About us",
+            "--meta_input={\"_wp_page_template\":\"page-no-title\"}",
+            "--porcelain"
+          ],
+          "save": "about"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        }
       ],
       "url": "/wp-admin/themes.php?page=axle-page-template-usage",
-      "steps": [{ "waitFor": ".aptu-table" }],
-      "cleanup": [["post", "delete", "{home}", "{about}", "{sale}", "--force"]]
+      "steps": [
+        {
+          "waitFor": ".aptu-table"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{home}",
+          "{about}",
+          "{sale}",
+          "--force"
+        ]
+      ]
     },
     {
       "name": "Pages list with the Template column, filter and missing-template notice",
       "setup": [
-        { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Home", "--porcelain"], "save": "home" },
-        { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=About us", "--meta_input={\"_wp_page_template\":\"page-no-title\"}", "--porcelain"], "save": "about" },
-        { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Spring sale", "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}", "--porcelain"], "save": "sale" }
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Home",
+            "--porcelain"
+          ],
+          "save": "home"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=About us",
+            "--meta_input={\"_wp_page_template\":\"page-no-title\"}",
+            "--porcelain"
+          ],
+          "save": "about"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        }
       ],
       "url": "/wp-admin/edit.php?post_type=page",
-      "steps": [{ "waitFor": ".aptu-missing-notice" }],
-      "include": [".aptu-missing-notice", "#filter-by-template", ".column-axle_page_template_usage"],
-      "cleanup": [["post", "delete", "{home}", "{about}", "{sale}", "--force"]]
+      "steps": [
+        {
+          "waitFor": ".aptu-missing-notice"
+        }
+      ],
+      "include": [
+        ".aptu-missing-notice",
+        "#filter-by-template",
+        ".column-axle_page_template_usage"
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{home}",
+          "{about}",
+          "{sale}",
+          "--force"
+        ]
+      ]
     },
     {
       "name": "Pages list filtered to pages on a missing template",
       "setup": [
-        { "wp": ["post", "create", "--post_type=page", "--post_status=publish", "--post_title=Spring sale", "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}", "--porcelain"], "save": "sale" }
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        }
       ],
       "url": "/wp-admin/edit.php?post_type=page&axle_page_template_usage=__missing",
-      "include": ["#filter-by-template", ".column-axle_page_template_usage"],
-      "cleanup": [["post", "delete", "{sale}", "--force"]]
+      "include": [
+        "#filter-by-template",
+        ".column-axle_page_template_usage"
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{sale}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "Check a theme tab, no theme chosen",
+      "setup": [
+        {
+          "js": "theme-fixtures.js",
+          "call": "createThemes"
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=theme",
+      "steps": [
+        {
+          "waitFor": "#aptu-theme"
+        }
+      ],
+      "cleanup": [
+        {
+          "js": "theme-fixtures.js",
+          "call": "removeThemes",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Check a theme tab, nothing would be lost",
+      "setup": [
+        {
+          "js": "theme-fixtures.js",
+          "call": "createThemes"
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=theme&theme=aptu-block",
+      "steps": [
+        {
+          "waitFor": ".aptu-theme-result"
+        }
+      ],
+      "cleanup": [
+        {
+          "js": "theme-fixtures.js",
+          "call": "removeThemes",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Check a theme tab, pages that would lose their template",
+      "setup": [
+        {
+          "js": "theme-fixtures.js",
+          "call": "createThemes"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Home",
+            "--meta_input={\"_wp_page_template\":\"page-no-title\"}",
+            "--porcelain"
+          ],
+          "save": "home"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\":\"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=theme&theme=aptu-block",
+      "steps": [
+        {
+          "waitFor": ".aptu-map-row"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{home}",
+          "{sale}",
+          "--force"
+        ],
+        {
+          "js": "theme-fixtures.js",
+          "call": "removeThemes",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Check a theme tab, with a saved plan",
+      "setup": [
+        {
+          "js": "theme-fixtures.js",
+          "call": "createThemes"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Home",
+            "--meta_input={\"_wp_page_template\":\"page-no-title\"}",
+            "--porcelain"
+          ],
+          "save": "home"
+        },
+        {
+          "wp": [
+            "axle-page-template-usage",
+            "set-mapping",
+            "aptu-block",
+            "page-no-title",
+            "default"
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=theme&theme=aptu-block",
+      "steps": [
+        {
+          "waitFor": ".aptu-theme-result .notice-info"
+        }
+      ],
+      "cleanup": [
+        [
+          "option",
+          "delete",
+          "axle_page_template_usage_theme_maps"
+        ],
+        [
+          "post",
+          "delete",
+          "{home}",
+          "--force"
+        ],
+        {
+          "js": "theme-fixtures.js",
+          "call": "removeThemes",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "History tab with changes and an undo button",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Home",
+            "--porcelain"
+          ],
+          "save": "home"
+        },
+        {
+          "wp": [
+            "post",
+            "meta",
+            "update",
+            "{home}",
+            "_wp_page_template",
+            "page-no-title"
+          ]
+        },
+        {
+          "wp": [
+            "post",
+            "meta",
+            "update",
+            "{home}",
+            "_wp_page_template",
+            "templates/landing.php"
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=history",
+      "steps": [
+        {
+          "waitFor": ".aptu-history-table"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{home}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "History tab filtered to one page",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Home",
+            "--porcelain"
+          ],
+          "save": "home"
+        },
+        {
+          "wp": [
+            "post",
+            "meta",
+            "update",
+            "{home}",
+            "_wp_page_template",
+            "page-no-title"
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=history&post={home}",
+      "steps": [
+        {
+          "waitFor": ".aptu-history__scope"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{home}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "History tab, nothing matches the filters",
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=history&template=zzz-no-such-template",
+      "steps": [
+        {
+          "waitFor": ".axle-empty"
+        }
+      ]
+    },
+    {
+      "name": "Notice after a theme switch, with Undo",
+      "setup": [
+        {
+          "js": "theme-fixtures.js",
+          "call": "createThemes"
+        },
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Home",
+            "--meta_input={\"_wp_page_template\":\"page-no-title\"}",
+            "--porcelain"
+          ],
+          "save": "home"
+        },
+        {
+          "wp": [
+            "axle-page-template-usage",
+            "set-mapping",
+            "aptu-block",
+            "page-no-title",
+            "default"
+          ]
+        },
+        {
+          "wp": [
+            "theme",
+            "activate",
+            "aptu-block"
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php",
+      "steps": [
+        {
+          "waitFor": ".aptu-switch-notice"
+        }
+      ],
+      "include": [
+        ".aptu-switch-notice"
+      ],
+      "cleanup": [
+        [
+          "option",
+          "delete",
+          "axle_page_template_usage_switch_result"
+        ],
+        [
+          "post",
+          "delete",
+          "{home}",
+          "--force"
+        ],
+        {
+          "js": "theme-fixtures.js",
+          "call": "removeThemes",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
     }
   ],
   "skip": {}
