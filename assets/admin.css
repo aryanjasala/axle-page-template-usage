@@ -72,3 +72,98 @@
 		flex-wrap: wrap;
 	}
 }
+
+/* Theme check and history. Cards, stats, badges and facts come from axle-ui.css. */
+.aptu-theme-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 16px;
+}
+
+.aptu-theme-result h4 {
+	margin: 16px 0 8px;
+}
+
+.aptu-mapping-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	align-items: center;
+	margin-top: 16px;
+}
+
+.aptu-map-row .axle-badge {
+	margin-left: 6px;
+}
+
+.aptu-inline-form {
+	display: inline-block;
+	margin: 0 8px 0 0;
+}
+
+.aptu-switch-notice__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	align-items: center;
+}
+
+.aptu-switch-notice__actions .aptu-inline-form {
+	margin: 0;
+}
+
+.aptu-history__filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	align-items: flex-end;
+	margin-bottom: 16px;
+}
+
+.aptu-history__filters p {
+	margin: 0;
+}
+
+.aptu-history__filters label {
+	display: block;
+	margin-bottom: 4px;
+	font-weight: 600;
+}
+
+.aptu-history__filter-actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.aptu-history__scope {
+	margin: 0 0 8px;
+}
+
+.aptu-history-table td {
+	vertical-align: top;
+}
+
+.aptu-history-table .aptu-default {
+	color: #646970;
+}
+
+.aptu-undo-reason {
+	color: #50575e;
+}
+
+@media screen and (max-width: 782px) {
+	.aptu-history__filters {
+		display: block;
+	}
+
+	.aptu-history__filters p {
+		margin-bottom: 8px;
+	}
+}
+
+.aptu-batch .aptu-inline-form {
+	margin-top: 12px;
+}

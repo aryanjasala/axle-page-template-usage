@@ -69,6 +69,31 @@ final class ListColumn implements Service {
 		add_action( 'pre_get_posts', array( $this, 'filter_query' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_notices', array( $this, 'missing_notice' ) );
+		add_filter( 'page_row_actions', array( $this, 'add_history_action' ), 10, 2 );
+		add_filter( 'post_row_actions', array( $this, 'add_history_action' ), 10, 2 );
+	}
+
+	/**
+	 * Adds "Template history" to the row actions, a link to the History tab filtered to that page.
+	 *
+	 * @param mixed $actions Row actions.
+	 * @param mixed $post    Post of the row.
+	 * @return mixed
+	 */
+	public function add_history_action( $actions, $post ) {
+		if ( ! is_array( $actions ) || ! $post instanceof \WP_Post || ! current_user_can( ReportPage::capability() ) ) {
+			return $actions;
+		}
+
+		$actions['aptu_history'] = sprintf(
+			'<a href="%1$s" aria-label="%2$s">%3$s</a>',
+			esc_url( HistoryTab::url( array( 'post' => $post->ID ) ) ),
+			/* translators: %s: post title. */
+			esc_attr( sprintf( __( 'Template history of "%s"', 'axle-page-template-usage' ), get_the_title( $post ) ) ),
+			esc_html__( 'Template history', 'axle-page-template-usage' )
+		);
+
+		return $actions;
 	}
 
 	/**

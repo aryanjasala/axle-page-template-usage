@@ -37,4 +37,13 @@ spl_autoload_register(
 	}
 );
 
+register_activation_hook( __FILE__, array( History::class, 'install' ) );
+register_deactivation_hook(
+	__FILE__,
+	static function (): void {
+		wp_clear_scheduled_hook( History::CRON );
+		wp_clear_scheduled_hook( ThemeCheck::CRON );
+	}
+);
+
 add_action( 'plugins_loaded', array( Plugin::class, 'boot' ) );

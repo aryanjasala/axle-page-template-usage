@@ -27,6 +27,22 @@ final class Templates implements Service {
 	private const BATCH = 100;
 
 	/**
+	 * Records who moved what, when there is a history. Null in tests and when built alone.
+	 *
+	 * @var History|null
+	 */
+	private ?History $history;
+
+	/**
+	 * Sets up the template data.
+	 *
+	 * @param History|null $history Template history, to tie moves into batches.
+	 */
+	public function __construct( ?History $history = null ) {
+		$this->history = $history;
+	}
+
+	/**
 	 * Keeps the cached usage counts fresh.
 	 */
 	public function register(): void {
@@ -305,16 +321,26 @@ final class Templates implements Service {
 	 * @param string $to         Template slug or DEFAULT_TEMPLATE.
 	 * @param int    $limit      Most posts to move, 0 for all.
 	 * @param bool   $check_user Skip posts the current user may not edit.
-	 * @return array{moved: int, skipped: int, remaining: int}|\WP_Error
+	 * @param string $source     Where the move comes from, for the history: bulk_move, cli, ability or theme_switch. Empty for "other".
+	 * @param string $batch      Batch ID to record the move under, so one history entry group can undo it. Empty for a new one.
+	 * @param int    $user       User ID to record, or 0 for the current user.
+	 * @return array{moved: int, skipped: int, remaining: int, batch: string}|\WP_Error `batch` is empty when nothing is recorded.
 	 */
-	public function reassign( string $post_type, string $from, string $to, int $limit = 0, bool $check_user = false ) {
+	public function reassign( string $post_type, string $from, string $to, int $limit = 0, bool $check_user = false, string $source = '', string $batch = '', int $user = 0 ) {
 		if ( ! $this->is_default( $to ) && ! isset( $this->get_templates( $post_type )[ $to ] ) ) {
 			return new \WP_Error( 'axle_page_template_usage_unknown_template', __( 'The theme does not have that template.', 'axle-page-template-usage' ) );
 		}
 
-		$value   = $this->is_default( $to ) ? self::DEFAULT_TEMPLATE : $to;
-		$moved   = 0;
-		$skipped = array();
+		$value    = $this->is_default( $to ) ? self::DEFAULT_TEMPLATE : $to;
+		$moved    = 0;
+		$skipped  = array();
+		$previous = null;
+		if ( $this->history ) {
+			$batch    = '' !== $batch ? $batch : $this->history->new_batch();
+			$previous = $this->history->enter( $source, $batch, $user ? $user : null );
+		} else {
+			$batch = '';
+		}
 
 		/**
 		 * Fires before items move from one template to another.
@@ -326,36 +352,42 @@ final class Templates implements Service {
 		 */
 		do_action( 'axle_page_template_usage_before_reassign', $post_type, $from, $value, $limit );
 
-		do {
-			$batch = $limit ? min( self::BATCH, $limit - $moved ) : self::BATCH;
-			// Moved posts no longer match, so every batch is the first page of what is left.
-			$ids = $this->matching_ids( $post_type, $from, $batch, $skipped );
+		try {
+			do {
+				$size = $limit ? min( self::BATCH, $limit - $moved ) : self::BATCH;
+				// Moved posts no longer match, so every batch is the first page of what is left.
+				$ids = $this->matching_ids( $post_type, $from, $size, $skipped );
 
-			$done = array();
-			foreach ( $ids as $post_id ) {
-				if ( $check_user && ! current_user_can( 'edit_post', $post_id ) ) {
-					$skipped[] = $post_id;
-					continue;
+				$done = array();
+				foreach ( $ids as $post_id ) {
+					if ( $check_user && ! current_user_can( 'edit_post', $post_id ) ) {
+						$skipped[] = $post_id;
+						continue;
+					}
+					update_post_meta( $post_id, self::META_KEY, $value );
+					$done[] = $post_id;
 				}
-				update_post_meta( $post_id, self::META_KEY, $value );
-				$done[] = $post_id;
-			}
-			$moved += count( $done );
+				$moved += count( $done );
 
-			if ( $done ) {
-				/**
-				 * Fires after a batch of posts moved to another template.
-				 *
-				 * @param string $post_type Post type.
-				 * @param string $from      Template they were on.
-				 * @param string $to        Template they are on now.
-				 * @param int[]  $post_ids  Posts in this batch.
-				 */
-				do_action( 'axle_page_template_usage_reassigned', $post_type, $from, $value, $done );
-			}
+				if ( $done ) {
+					/**
+					 * Fires after a batch of posts moved to another template.
+					 *
+					 * @param string $post_type Post type.
+					 * @param string $from      Template they were on.
+					 * @param string $to        Template they are on now.
+					 * @param int[]  $post_ids  Posts in this batch.
+					 */
+					do_action( 'axle_page_template_usage_reassigned', $post_type, $from, $value, $done );
+				}
 
-			$count = count( $ids );
-		} while ( $count && ( ! $limit || $moved < $limit ) );
+				$count = count( $ids );
+			} while ( $count && ( ! $limit || $moved < $limit ) );
+		} finally {
+			if ( $this->history ) {
+				$this->history->leave( $previous );
+			}
+		}
 
 		$this->flush_counts( $post_type );
 
@@ -363,6 +395,7 @@ final class Templates implements Service {
 			'moved'     => $moved,
 			'skipped'   => count( $skipped ),
 			'remaining' => max( 0, $this->count_matching( $post_type, $from ) - count( $skipped ) ),
+			'batch'     => $moved ? $batch : '',
 		);
 	}
 
@@ -402,7 +435,7 @@ final class Templates implements Service {
 	 * @param string $template  Template slug, DEFAULT_TEMPLATE or MISSING.
 	 * @return int
 	 */
-	private function count_matching( string $post_type, string $template ): int {
+	public function count_matching( string $post_type, string $template ): int {
 		$query = new \WP_Query(
 			array(
 				'post_type'      => $post_type,
