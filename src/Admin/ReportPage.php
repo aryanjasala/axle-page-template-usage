@@ -9,6 +9,7 @@ namespace AryanX\Axle\PageTemplateUsage\Admin;
 
 use AryanX\Axle\PageTemplateUsage\Service;
 use AryanX\Axle\PageTemplateUsage\Templates;
+use AryanX\Axle\PageTemplateUsage\ThemeCheck;
 use const AryanX\Axle\PageTemplateUsage\PLUGIN_FILE;
 use const AryanX\Axle\PageTemplateUsage\VERSION;
 
@@ -135,6 +136,50 @@ final class ReportPage implements Service {
 	}
 
 	/**
+	 * Whether the current user may see and change the templates of a post type.
+	 *
+	 * Needs the capability above, and edit_posts on the post type. Every screen
+	 * and ability shows only the post types that pass, so nobody sees the
+	 * counts, items or history of a post type they cannot edit.
+	 *
+	 * @param string $post_type Post type name.
+	 * @return bool False for a post type that does not exist.
+	 */
+	public static function can_access( string $post_type ): bool {
+		$object  = '' !== $post_type ? get_post_type_object( $post_type ) : null;
+		$allowed = $object instanceof \WP_Post_Type && current_user_can( self::capability() ) && current_user_can( $object->cap->edit_posts );
+
+		/**
+		 * Filters whether the current user may see and change the templates of a post type.
+		 *
+		 * @param bool   $allowed   Default: the Axle Page Template Usage capability, and edit_posts on the post type.
+		 * @param string $post_type Post type name.
+		 */
+		return (bool) apply_filters( 'axle_page_template_usage_can_access_post_type', $allowed, $post_type );
+	}
+
+	/**
+	 * Post types the current user may see and change the templates of.
+	 *
+	 * @return string[] Post type names.
+	 */
+	public static function accessible_types(): array {
+		return array_values( array_filter( array_map( 'strval', get_post_types() ), array( self::class, 'can_access' ) ) );
+	}
+
+	/**
+	 * Whether the current user may check a theme before switching, and plan its templates.
+	 *
+	 * The check lists installed themes, so it needs the theme check capability
+	 * (switch_themes by default) as well as the Axle Page Template Usage one.
+	 *
+	 * @return bool
+	 */
+	public static function can_check_themes(): bool {
+		return current_user_can( self::capability() ) && current_user_can( ThemeCheck::capability() );
+	}
+
+	/**
 	 * Registers Appearance > Axle Page Template Usage.
 	 */
 	public function add_page(): void {
@@ -198,6 +243,10 @@ final class ReportPage implements Service {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
 
+		if ( 'theme' === $tab && ! self::can_check_themes() ) {
+			return 'templates';
+		}
+
 		return in_array( $tab, array( 'theme', 'history' ), true ) ? $tab : 'templates';
 	}
 
@@ -212,6 +261,9 @@ final class ReportPage implements Service {
 			'theme'     => __( 'Check a theme', 'axle-page-template-usage' ),
 			'history'   => __( 'History', 'axle-page-template-usage' ),
 		);
+		if ( ! self::can_check_themes() ) {
+			unset( $tabs['theme'] );
+		}
 		?>
 		<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Axle Page Template Usage views', 'axle-page-template-usage' ); ?>">
 			<?php foreach ( $tabs as $key => $label ) : ?>
@@ -225,15 +277,27 @@ final class ReportPage implements Service {
 	 * Prints the template usage of the active theme.
 	 */
 	private function render_templates(): void {
-		$post_types = $this->templates->get_post_types();
+		$all_types  = $this->templates->get_post_types();
+		$post_types = array_values(
+			array_filter(
+				$all_types,
+				static function ( \WP_Post_Type $post_type ): bool {
+					return self::can_access( $post_type->name );
+				}
+			)
+		);
 		?>
 			<p class="axle-intro aptu-report__intro">
 				<?php esc_html_e( 'Every template your theme offers, how many items use it, and items that point at a template the theme no longer has.', 'axle-page-template-usage' ); ?>
 			</p>
 
-			<?php if ( ! $post_types ) : ?>
+			<?php if ( ! $all_types ) : ?>
 				<div class="axle-empty">
 					<p><?php esc_html_e( 'The active theme has no templates to choose from. When it offers some, they will show up here with how many items use each one.', 'axle-page-template-usage' ); ?></p>
+				</div>
+			<?php elseif ( ! $post_types ) : ?>
+				<div class="axle-empty">
+					<p><?php esc_html_e( 'You are not allowed to edit any of the post types that use templates.', 'axle-page-template-usage' ); ?></p>
 				</div>
 			<?php endif; ?>
 
@@ -244,14 +308,13 @@ final class ReportPage implements Service {
 	}
 
 	/**
-	 * Prints the summary and table for one post type.
+	 * Prints the summary and table for one post type the user may edit.
 	 *
 	 * @param \WP_Post_Type $post_type Post type.
 	 */
 	private function render_post_type( \WP_Post_Type $post_type ): void {
 		$rows        = $this->templates->get_report( $post_type->name );
 		$templates   = $this->templates->get_templates( $post_type->name );
-		$can_edit    = current_user_can( $post_type->cap->edit_posts );
 		$list_column = new ListColumn( $this->templates );
 		$unused      = count( wp_list_filter( $rows, array( 'status' => 'unused' ) ) );
 		$missing     = array_sum( wp_list_pluck( wp_list_filter( $rows, array( 'status' => 'missing' ) ), 'count' ) );
@@ -297,9 +360,7 @@ final class ReportPage implements Service {
 						<th scope="col"><?php esc_html_e( 'Template', 'axle-page-template-usage' ); ?></th>
 						<th scope="col" class="num"><?php echo esc_html( $post_type->labels->name ); ?></th>
 						<th scope="col"><?php esc_html_e( 'Status', 'axle-page-template-usage' ); ?></th>
-						<?php if ( $can_edit ) : ?>
-							<th scope="col"><?php esc_html_e( 'Move everything to', 'axle-page-template-usage' ); ?></th>
-						<?php endif; ?>
+						<th scope="col"><?php esc_html_e( 'Move everything to', 'axle-page-template-usage' ); ?></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -319,13 +380,11 @@ final class ReportPage implements Service {
 								<?php endif; ?>
 							</td>
 							<td><span class="axle-badge axle-badge--<?php echo esc_attr( $tones[ $row['status'] ] ); ?>"><?php echo esc_html( $labels[ $row['status'] ] ); ?></span></td>
-							<?php if ( $can_edit ) : ?>
-								<td>
-									<?php if ( $row['count'] ) : ?>
-										<?php $this->render_reassign_form( $post_type->name, $row['slug'], $templates ); ?>
-									<?php endif; ?>
-								</td>
-							<?php endif; ?>
+							<td>
+								<?php if ( $row['count'] ) : ?>
+									<?php $this->render_reassign_form( $post_type->name, $row['slug'], $templates ); ?>
+								<?php endif; ?>
+							</td>
 						</tr>
 					<?php endforeach; ?>
 				</tbody>
@@ -495,10 +554,9 @@ final class ReportPage implements Service {
 		$post_type = isset( $_POST['post_type'] ) ? sanitize_key( wp_unslash( $_POST['post_type'] ) ) : '';
 		$from      = isset( $_POST['from'] ) ? sanitize_text_field( wp_unslash( $_POST['from'] ) ) : '';
 		$to        = isset( $_POST['to'] ) ? sanitize_text_field( wp_unslash( $_POST['to'] ) ) : '';
-		$object    = get_post_type_object( $post_type );
 		$back      = admin_url( 'themes.php?page=' . self::SLUG );
 
-		if ( ! $object || ! current_user_can( self::capability() ) || ! current_user_can( $object->cap->edit_posts ) ) {
+		if ( ! self::can_access( $post_type ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to change templates for these items.', 'axle-page-template-usage' ), 403 );
 		}
 

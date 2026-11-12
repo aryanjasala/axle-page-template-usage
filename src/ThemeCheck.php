@@ -57,15 +57,16 @@ final class ThemeCheck implements Service {
 	}
 
 	/**
-	 * Capability needed to save or clear a mapping, which edits templates when the theme goes live.
+	 * Capability needed to check a theme, and to save or clear a mapping, which edits templates when the theme goes live.
 	 *
 	 * @return string
 	 */
 	public static function capability(): string {
 		/**
-		 * Filters the capability needed to save a template mapping for a theme.
+		 * Filters the capability needed to check a theme before switching, and to save a template mapping for it.
 		 *
-		 * Saving one makes the next activation of that theme move items to other templates.
+		 * The check lists the installed themes. Saving a mapping makes the next
+		 * activation of that theme move items to other templates.
 		 *
 		 * @param string $capability Default switch_themes.
 		 */
@@ -231,11 +232,12 @@ final class ThemeCheck implements Service {
 	/**
 	 * What would lose its template if a theme became active.
 	 *
-	 * @param string      $stylesheet Theme folder name.
-	 * @param string|null $post_type  Only this post type, or null for every type that uses templates.
+	 * @param string        $stylesheet Theme folder name.
+	 * @param string|null   $post_type  Only this post type, or null for every type that uses templates.
+	 * @param string[]|null $allowed    Post types the answer may cover, such as the ones the current user can edit. Null for every one.
 	 * @return array{theme: array{stylesheet: string, name: string}, groups: array<string, array<int, array{slug: string, name: string, count: int, already_missing: bool}>>, total: int}|\WP_Error
 	 */
-	public function check( string $stylesheet, ?string $post_type = null ) {
+	public function check( string $stylesheet, ?string $post_type = null, ?array $allowed = null ) {
 		$themes = $this->get_inactive_themes();
 
 		if ( get_stylesheet() === $stylesheet ) {
@@ -250,6 +252,9 @@ final class ThemeCheck implements Service {
 		$groups = array();
 		$total  = 0;
 		$types  = null === $post_type ? wp_list_pluck( $this->templates->get_post_types(), 'name' ) : array( $post_type );
+		if ( null !== $allowed ) {
+			$types = array_intersect( $types, $allowed );
+		}
 
 		foreach ( $types as $type ) {
 			$available = $this->get_theme_templates( $theme, (string) $type );

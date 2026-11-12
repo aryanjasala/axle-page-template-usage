@@ -98,7 +98,7 @@ final class Abilities implements Service {
 			self::CATEGORY . '/get-report',
 			array(
 				'label'               => __( 'Get template usage', 'axle-page-template-usage' ),
-				'description'         => __( 'Every template the theme offers for a post type with how many items use it, plus templates items still point at that the theme no longer has (status missing).', 'axle-page-template-usage' ),
+				'description'         => __( 'Every template the theme offers for a post type with how many items use it, plus templates items still point at that the theme no longer has (status missing). Only for post types the user can edit.', 'axle-page-template-usage' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => array(
 					'type'                 => 'object',
@@ -132,9 +132,7 @@ final class Abilities implements Service {
 					),
 				),
 				'execute_callback'    => array( $this, 'get_report' ),
-				'permission_callback' => static function (): bool {
-					return current_user_can( ReportPage::capability() );
-				},
+				'permission_callback' => array( $this, 'can_use_post_type' ),
 				'meta'                => array(
 					'annotations'  => array(
 						'readonly'   => true,
@@ -184,7 +182,7 @@ final class Abilities implements Service {
 					),
 				),
 				'execute_callback'    => array( $this, 'reassign' ),
-				'permission_callback' => array( $this, 'can_reassign' ),
+				'permission_callback' => array( $this, 'can_use_post_type' ),
 				'meta'                => array(
 					'annotations'  => array(
 						'readonly'    => false,
@@ -204,7 +202,7 @@ final class Abilities implements Service {
 			self::CATEGORY . '/check-theme',
 			array(
 				'label'               => __( 'Check a theme before switching', 'axle-page-template-usage' ),
-				'description'         => __( 'For an installed theme that is not active: which items use a template the theme does not have, grouped by template with counts. Read-only. Use it before switching themes.', 'axle-page-template-usage' ),
+				'description'         => __( 'For an installed theme that is not active: which items use a template the theme does not have, grouped by template with counts, for the post types the user can edit. Read-only. Use it before switching themes.', 'axle-page-template-usage' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => array(
 					'type'                 => 'object',
@@ -250,9 +248,7 @@ final class Abilities implements Service {
 					),
 				),
 				'execute_callback'    => array( $this, 'check_theme' ),
-				'permission_callback' => static function (): bool {
-					return current_user_can( ReportPage::capability() );
-				},
+				'permission_callback' => array( $this, 'can_check_theme' ),
 				'meta'                => array(
 					'annotations'  => array(
 						'readonly'   => true,
@@ -269,7 +265,7 @@ final class Abilities implements Service {
 			self::CATEGORY . '/get-history',
 			array(
 				'label'               => __( 'Get template history', 'axle-page-template-usage' ),
-				'description'         => __( 'Recorded template changes, newest first: post, old and new template, user, source, time and batch, and whether each can still be undone. Read-only.', 'axle-page-template-usage' ),
+				'description'         => __( 'Recorded template changes of the post types the user can edit, newest first: post, old and new template, user, source, time and batch, and whether each can still be undone. Read-only.', 'axle-page-template-usage' ),
 				'category'            => self::CATEGORY,
 				'input_schema'        => array(
 					'type'                 => 'object',
@@ -313,9 +309,7 @@ final class Abilities implements Service {
 					),
 				),
 				'execute_callback'    => array( $this, 'get_history' ),
-				'permission_callback' => static function (): bool {
-					return current_user_can( ReportPage::capability() );
-				},
+				'permission_callback' => array( $this, 'can_read_history' ),
 				'meta'                => array(
 					'annotations'  => array(
 						'readonly'   => true,
@@ -338,8 +332,8 @@ final class Abilities implements Service {
 	public function check_theme( $input = null ) {
 		$input     = (array) $input;
 		$theme     = (string) ( $input['theme'] ?? '' );
-		$post_type = isset( $input['post_type'] ) && '' !== $input['post_type'] ? sanitize_key( (string) $input['post_type'] ) : null;
-		$result    = $this->theme_check->check( $theme, $post_type );
+		$post_type = self::theme_post_type( $input );
+		$result    = $this->theme_check->check( $theme, '' !== $post_type ? $post_type : null, ReportPage::accessible_types() );
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -378,10 +372,11 @@ final class Abilities implements Service {
 		$input  = (array) $input;
 		$result = $this->history->query(
 			array(
-				'post_id'  => absint( $input['post_id'] ?? 0 ),
-				'source'   => sanitize_key( (string) ( $input['source'] ?? '' ) ),
-				'batch'    => preg_replace( '/[^a-f0-9-]/', '', strtolower( (string) ( $input['batch'] ?? '' ) ) ),
-				'per_page' => min( 200, max( 1, absint( $input['limit'] ?? 50 ) ) ),
+				'post_id'    => absint( $input['post_id'] ?? 0 ),
+				'source'     => sanitize_key( (string) ( $input['source'] ?? '' ) ),
+				'batch'      => preg_replace( '/[^a-f0-9-]/', '', strtolower( (string) ( $input['batch'] ?? '' ) ) ),
+				'per_page'   => min( 200, max( 1, absint( $input['limit'] ?? 50 ) ) ),
+				'post_types' => ReportPage::accessible_types(),
 			)
 		);
 
@@ -457,15 +452,39 @@ final class Abilities implements Service {
 	}
 
 	/**
-	 * Permission: the report capability, and editing items of the post type.
+	 * Permission for get-report and reassign: the report capability, and edit_posts on the post type.
+	 *
+	 * The post type is read exactly as the ability reads it, so a different
+	 * spelling of a post type cannot get past this check.
 	 *
 	 * @param array|null $input Ability input.
 	 * @return bool
 	 */
-	public function can_reassign( $input = null ): bool {
-		$object = get_post_type_object( (string) ( ( (array) $input )['post_type'] ?? 'page' ) );
+	public function can_use_post_type( $input = null ): bool {
+		return ReportPage::can_access( self::post_type_name( $input ) );
+	}
 
-		return current_user_can( ReportPage::capability() ) && ( ! $object || current_user_can( $object->cap->edit_posts ) );
+	/**
+	 * Permission for check-theme: the capabilities to check a theme, and edit_posts on the post type when one is given.
+	 *
+	 * Without a post type, the answer only covers the post types the user can edit.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return bool
+	 */
+	public function can_check_theme( $input = null ): bool {
+		$post_type = self::theme_post_type( $input );
+
+		return ReportPage::can_check_themes() && ( '' === $post_type || ReportPage::can_access( $post_type ) );
+	}
+
+	/**
+	 * Permission for get-history: the report capability. The answer only covers the post types the user can edit.
+	 *
+	 * @return bool
+	 */
+	public function can_read_history(): bool {
+		return current_user_can( ReportPage::capability() );
 	}
 
 	/**
@@ -475,7 +494,7 @@ final class Abilities implements Service {
 	 * @return string|\WP_Error
 	 */
 	private function post_type( $input ) {
-		$post_type = sanitize_key( (string) ( ( (array) $input )['post_type'] ?? 'page' ) );
+		$post_type = self::post_type_name( $input );
 
 		if ( ! $this->templates->uses_templates( $post_type ) ) {
 			/* translators: %s: post type name. */
@@ -483,5 +502,25 @@ final class Abilities implements Service {
 		}
 
 		return $post_type;
+	}
+
+	/**
+	 * The post type named in the input of get-report and reassign. Default page.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return string
+	 */
+	private static function post_type_name( $input ): string {
+		return sanitize_key( (string) ( ( (array) $input )['post_type'] ?? 'page' ) );
+	}
+
+	/**
+	 * The post type named in the input of check-theme, or an empty string for every one.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return string
+	 */
+	private static function theme_post_type( $input ): string {
+		return sanitize_key( (string) ( ( (array) $input )['post_type'] ?? '' ) );
 	}
 }

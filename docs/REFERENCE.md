@@ -37,6 +37,14 @@ wp axle-page-template-usage undo-batch <batch>
 
 `history` lists recorded changes, newest first, and whether each can still be undone. `undo` undoes one change if the page still has the template it set. `undo-batch` undoes a whole batch (one move, one theme switch), skipping pages that changed since. WP-CLI has no user, so no edit checks and no limit.
 
+## Who sees what
+
+Appearance > Axle Page Template Usage needs the Axle Page Template Usage capability (`edit_pages` by default). On top of that, every screen and every ability only covers the post types the user can edit (`edit_posts` on the post type): the counts, the Move buttons, the theme check, the history, the undo and the "Changed by" filter. Someone who can edit pages but not posts sees nothing about posts. In the History tab, a page the user may not read (a draft or private page of someone else) shows its ID instead of its title.
+
+Checking a theme lists the installed themes, so the "Check a theme" tab, its link on Appearance > Themes, the notice after a switch and the `check-theme` ability also need the theme check capability (`switch_themes` by default). A saved plan only covers the post types the person who saved it can edit.
+
+WP-CLI has no user, so it covers every post type.
+
 ## Hooks
 
 | Hook | Type | Use |
@@ -44,11 +52,12 @@ wp axle-page-template-usage undo-batch <batch>
 | `axle_page_template_usage_post_types` | filter | `( string[] $post_types )`. Post types to look at. Types without templates are left out on their own |
 | `axle_page_template_usage_sortable` | filter | `( bool $sortable, string $post_type )`. Return `false` to turn off sorting by template, which joins postmeta and is slow on very large sites |
 | `axle_page_template_usage_capability` | filter | `( string $capability )`. Who may open Appearance > Axle Page Template Usage. Default `edit_pages` |
+| `axle_page_template_usage_can_access_post_type` | filter | `( bool $allowed, string $post_type )`. Whether the current user may see and change the templates of a post type, on every screen and in every ability. Default: the capability above and `edit_posts` on the post type |
 | `axle_page_template_usage_move_limit` | filter | `( int $limit, string $post_type )`. Items one Move click handles. Default 500 |
 | `axle_page_template_usage_show_missing_notice` | filter | `( bool $show, string $post_type, int $missing )`. Whether the list screen warns about items on missing templates |
 | `axle_page_template_usage_before_reassign` | action | `( string $post_type, string $from, string $to, int $limit )`. Fires before items move, from the screen or WP-CLI |
 | `axle_page_template_usage_reassigned` | action | `( string $post_type, string $from, string $to, int[] $post_ids )`. Fires for every batch of items moved |
-| `axle_page_template_usage_theme_check_capability` | filter | `( string $capability )`. Who may save or remove a plan for a theme. Default `switch_themes` |
+| `axle_page_template_usage_theme_check_capability` | filter | `( string $capability )`. Who may check a theme before switching, and save or remove a plan for it. Default `switch_themes` |
 | `axle_page_template_usage_theme_templates` | filter | `( array $templates, string $stylesheet, string $post_type, WP_Theme $theme )`. Templates a theme that is not active offers, when checking it |
 | `axle_page_template_usage_theme_check_sample_size` | filter | `( int $size )`. Example items listed under each template in the check. Default 5 |
 | `axle_page_template_usage_theme_mapping` | filter | `( array $mapping, string $stylesheet )`. The plan used on activation, `post type => ( from => to )`. `missing` as `from` means every template the theme lacks |
@@ -76,10 +85,10 @@ On WordPress 6.9 and later, Axle Page Template Usage registers [abilities](https
 
 | Ability | Does | Needs |
 | --- | --- | --- |
-| `axle-page-template-usage/get-report` | Read-only. Every template for `post_type` (default `page`) with how many items use it, and the number on missing templates | the Axle Page Template Usage capability |
+| `axle-page-template-usage/get-report` | Read-only. Every template for `post_type` (default `page`) with how many items use it, and the number on missing templates | the Axle Page Template Usage capability and `edit_posts` on the post type |
 | `axle-page-template-usage/reassign` | Moves items from `from` (a template, `default` or `missing`) to `to`, at most 500 per run, skipping items the user cannot edit. Returns `moved`, `skipped`, `remaining` and the `batch` ID of the move | the Axle Page Template Usage capability and `edit_posts` on the post type |
-| `axle-page-template-usage/check-theme` | Read-only. For an installed theme that is not active (`theme`), which items would lose their template, grouped by template with counts, and what a saved plan uses instead | the Axle Page Template Usage capability |
-| `axle-page-template-usage/get-history` | Read-only. Recorded template changes, newest first, filtered by `post_id`, `source` or `batch`, with whether each can still be undone | the Axle Page Template Usage capability |
+| `axle-page-template-usage/check-theme` | Read-only. For an installed theme that is not active (`theme`), which items would lose their template, grouped by template with counts, and what a saved plan uses instead. Only post types the user can edit | the Axle Page Template Usage capability, the theme check capability, and `edit_posts` on `post_type` when one is given |
+| `axle-page-template-usage/get-history` | Read-only. Recorded template changes of the post types the user can edit, newest first, filtered by `post_id`, `source` or `batch`, with whether each can still be undone | the Axle Page Template Usage capability |
 
 ## PHP API
 
@@ -93,7 +102,9 @@ $templates->reassign( 'page', 'templates/old.php', 'default', 500, true ); // at
 
 $plugin = AryanX\Axle\PageTemplateUsage\Plugin::instance();
 $plugin->theme_check()->check( 'twentytwentyfour' );   // what would lose its template, grouped by post type and template
+$plugin->theme_check()->check( 'twentytwentyfour', null, array( 'page' ) ); // only for pages
 $plugin->history()->query( array( 'post_id' => 42 ) ); // [ 'items' => rows, 'total' => n ]
+$plugin->history()->query( array( 'post_types' => array( 'page' ) ) ); // only changes of pages
 $plugin->history()->undo_batch( $batch );              // [ 'undone' => n, 'skipped' => n, 'remaining' => n, 'batch' => id ]
 ```
 

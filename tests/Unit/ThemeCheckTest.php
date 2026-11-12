@@ -227,4 +227,18 @@ final class ThemeCheckTest extends TestCase {
 		$this->check->on_batch_undone( 'b1', array( 'remaining' => 0 ) );
 		$this->assertArrayNotHasKey( ThemeCheck::OPTION_RESULT, $this->options );
 	}
+
+	public function test_the_check_leaves_out_post_types_the_caller_may_not_see(): void {
+		Functions\when( 'get_stylesheet' )->justReturn( 'active' );
+		$theme = $this->theme();
+		$theme->shouldReceive( 'errors' )->andReturn( false );
+		$theme->shouldReceive( 'get' )->with( 'Name' )->andReturn( 'Other' );
+		Functions\when( 'wp_get_themes' )->justReturn( array( 'other' => $theme ) );
+		Functions\expect( 'wp_cache_get' )->never();
+
+		$result = $this->check->check( 'other', 'post', array( 'page' ) );
+
+		$this->assertSame( array(), $result['groups'], 'Nothing about posts is counted for someone who may only edit pages.' );
+		$this->assertSame( 0, $result['total'] );
+	}
 }
