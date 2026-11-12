@@ -17,6 +17,24 @@ Moves every item from one template to another, 100 at a time, with no limit. `<f
 The Move button on Appearance > Axle Page Template Usage moves at most 500 items per click, skips items you are not allowed to edit, and says how many are left. Every move gets a batch ID, shown on the Move notice and printed by the command.
 
 ```sh
+wp axle-page-template-usage missing [--post_type=<type>] [--format=<format>]
+```
+
+Looks at the pages now and lists every template that items use but the active theme lacks: post type, template, item count, since when, and the suggested replacement with the reason (`same_file`, `same_name` or `default`). Changes nothing. Exits with code 1 when any template is missing and 0 when none is, so a deploy pipeline can fail on it.
+
+```sh
+wp axle-page-template-usage missing-alert <on|off> [--to=<email>]
+```
+
+Turns the email about missing templates on or off, and sets who gets it. The email is off by default and goes to the site admin address unless you give one.
+
+```sh
+wp --user=<user> axle-page-template-usage preview-url <post_id> <template>
+```
+
+Prints a front end link that shows the page with that template. The link works for the user given with `--user`, for one day, and saves nothing. The command fails when that user may not edit the page or the theme lacks the template.
+
+```sh
 wp axle-page-template-usage check-theme <theme> [--post_type=<type>] [--format=<format>]
 ```
 
@@ -37,27 +55,36 @@ wp axle-page-template-usage undo-batch <batch>
 
 `history` lists recorded changes, newest first, and whether each can still be undone. `undo` undoes one change if the page still has the template it set. `undo-batch` undoes a whole batch (one move, one theme switch), skipping pages that changed since. WP-CLI has no user, so no edit checks and no limit.
 
-## Who sees what
-
-Appearance > Axle Page Template Usage needs the Axle Page Template Usage capability (`edit_pages` by default). On top of that, every screen and every ability only covers the post types the user can edit (`edit_posts` on the post type): the counts, the Move buttons, the theme check, the history, the undo and the "Changed by" filter. Someone who can edit pages but not posts sees nothing about posts. In the History tab, a page the user may not read (a draft or private page of someone else) shows its ID instead of its title.
-
-Checking a theme lists the installed themes, so the "Check a theme" tab, its link on Appearance > Themes, the notice after a switch and the `check-theme` ability also need the theme check capability (`switch_themes` by default). A saved plan only covers the post types the person who saved it can edit.
-
-WP-CLI has no user, so it covers every post type.
-
 ## Hooks
 
 | Hook | Type | Use |
 | --- | --- | --- |
+| `axle_page_template_usage_scan_schedule` | filter | `( string $schedule )`. How often the theme's template list is compared with the last scan. Default `daily` |
+| `axle_page_template_usage_scanned` | action | `( array $state, array $new, string $source )`. Fires after a scan. `$new` holds the templates that went missing since the last one |
+| `axle_page_template_usage_missing_detected` | action | `( array $new, array $state )`. Fires when pages point at a template the theme lost since the last scan. Not fired by the first scan, which only sets the baseline |
+| `axle_page_template_usage_alert_capability` | filter | `( string $capability )`. Who may turn the email on and choose who gets it. Default `manage_options` |
+| `axle_page_template_usage_alert_recipients` | filter | `( string[] $recipients, array $new )`. Who gets the missing template email |
+| `axle_page_template_usage_alert_email` | filter | `( array $mail, array $new )`. Subject and plain text body of the email |
+| `axle_page_template_usage_alert_sent` | action | `( string[] $recipients, array $new )`. Fires after the email was sent |
+| `axle_page_template_usage_missing_suggestion` | filter | `( array $suggestion, string $post_type, string $slug, array $available )`. The template suggested for pages on a lost template, `template` and `reason`. A template the theme does not offer falls back to the default |
+| `axle_page_template_usage_suggestion_reasons` | filter | `( array $labels )`. The labels that say why a template is suggested |
+| `axle_page_template_usage_missing_notice_screens` | filter | `( string[] $screen_ids )`. Admin screens that show the missing template notice. Default the Dashboard, Themes and Plugins |
+| `axle_page_template_usage_missing_notice_message` | filter | `( string $message, array $rows, int $total )`. The sentence of that notice |
+| `axle_page_template_usage_move_preview_size` | filter | `( int $size )`. Example pages the Missing tab lists before a move. Default 10 |
+| `axle_page_template_usage_health_result` | filter | `( array $result, array $rows )`. The Site Health result for missing templates |
+| `axle_page_template_usage_can_preview` | filter | `( bool $allowed, WP_Post $post )`. Last word on whether the user may preview a page. The default needs access to the post type and the right to edit the page |
+| `axle_page_template_usage_preview_lifetime` | filter | `( int $seconds )`. How long a preview link works. Default one day |
+| `axle_page_template_usage_preview_message` | filter | `( string $message, int $post_id, string $template )`. The sentence on the preview bar |
+| `axle_page_template_usage_preview_started` | action | `( int $post_id, string $template )`. Fires when a page is shown with another template as a preview |
+| `axle_page_template_usage_preview_applied` | action | `( int $post_id, string $template, string $previous )`. Fires after "Use this template" saved it |
 | `axle_page_template_usage_post_types` | filter | `( string[] $post_types )`. Post types to look at. Types without templates are left out on their own |
 | `axle_page_template_usage_sortable` | filter | `( bool $sortable, string $post_type )`. Return `false` to turn off sorting by template, which joins postmeta and is slow on very large sites |
 | `axle_page_template_usage_capability` | filter | `( string $capability )`. Who may open Appearance > Axle Page Template Usage. Default `edit_pages` |
-| `axle_page_template_usage_can_access_post_type` | filter | `( bool $allowed, string $post_type )`. Whether the current user may see and change the templates of a post type, on every screen and in every ability. Default: the capability above and `edit_posts` on the post type |
 | `axle_page_template_usage_move_limit` | filter | `( int $limit, string $post_type )`. Items one Move click handles. Default 500 |
 | `axle_page_template_usage_show_missing_notice` | filter | `( bool $show, string $post_type, int $missing )`. Whether the list screen warns about items on missing templates |
 | `axle_page_template_usage_before_reassign` | action | `( string $post_type, string $from, string $to, int $limit )`. Fires before items move, from the screen or WP-CLI |
 | `axle_page_template_usage_reassigned` | action | `( string $post_type, string $from, string $to, int[] $post_ids )`. Fires for every batch of items moved |
-| `axle_page_template_usage_theme_check_capability` | filter | `( string $capability )`. Who may check a theme before switching, and save or remove a plan for it. Default `switch_themes` |
+| `axle_page_template_usage_theme_check_capability` | filter | `( string $capability )`. Who may save or remove a plan for a theme. Default `switch_themes` |
 | `axle_page_template_usage_theme_templates` | filter | `( array $templates, string $stylesheet, string $post_type, WP_Theme $theme )`. Templates a theme that is not active offers, when checking it |
 | `axle_page_template_usage_theme_check_sample_size` | filter | `( int $size )`. Example items listed under each template in the check. Default 5 |
 | `axle_page_template_usage_theme_mapping` | filter | `( array $mapping, string $stylesheet )`. The plan used on activation, `post type => ( from => to )`. `missing` as `from` means every template the theme lacks |
@@ -85,10 +112,12 @@ On WordPress 6.9 and later, Axle Page Template Usage registers [abilities](https
 
 | Ability | Does | Needs |
 | --- | --- | --- |
-| `axle-page-template-usage/get-report` | Read-only. Every template for `post_type` (default `page`) with how many items use it, and the number on missing templates | the Axle Page Template Usage capability and `edit_posts` on the post type |
+| `axle-page-template-usage/get-report` | Read-only. Every template for `post_type` (default `page`) with how many items use it, and the number on missing templates | the Axle Page Template Usage capability |
+| `axle-page-template-usage/get-missing` | Read-only. Templates that items point at but the theme lacks, with the item count, since when, and the suggested replacement. Only covers post types the user can edit | the Axle Page Template Usage capability, and `edit_posts` on `post_type` when one is given |
+| `axle-page-template-usage/get-preview-url` | Read-only. A front end link that shows `post_id` with `template`, for the current user only, saving nothing | the right to edit that page, and access to its post type |
 | `axle-page-template-usage/reassign` | Moves items from `from` (a template, `default` or `missing`) to `to`, at most 500 per run, skipping items the user cannot edit. Returns `moved`, `skipped`, `remaining` and the `batch` ID of the move | the Axle Page Template Usage capability and `edit_posts` on the post type |
-| `axle-page-template-usage/check-theme` | Read-only. For an installed theme that is not active (`theme`), which items would lose their template, grouped by template with counts, and what a saved plan uses instead. Only post types the user can edit | the Axle Page Template Usage capability, the theme check capability, and `edit_posts` on `post_type` when one is given |
-| `axle-page-template-usage/get-history` | Read-only. Recorded template changes of the post types the user can edit, newest first, filtered by `post_id`, `source` or `batch`, with whether each can still be undone | the Axle Page Template Usage capability |
+| `axle-page-template-usage/check-theme` | Read-only. For an installed theme that is not active (`theme`), which items would lose their template, grouped by template with counts, and what a saved plan uses instead | the Axle Page Template Usage capability |
+| `axle-page-template-usage/get-history` | Read-only. Recorded template changes, newest first, filtered by `post_id`, `source` or `batch`, with whether each can still be undone | the Axle Page Template Usage capability |
 
 ## PHP API
 
@@ -102,10 +131,11 @@ $templates->reassign( 'page', 'templates/old.php', 'default', 500, true ); // at
 
 $plugin = AryanX\Axle\PageTemplateUsage\Plugin::instance();
 $plugin->theme_check()->check( 'twentytwentyfour' );   // what would lose its template, grouped by post type and template
-$plugin->theme_check()->check( 'twentytwentyfour', null, array( 'page' ) ); // only for pages
 $plugin->history()->query( array( 'post_id' => 42 ) ); // [ 'items' => rows, 'total' => n ]
-$plugin->history()->query( array( 'post_types' => array( 'page' ) ) ); // only changes of pages
 $plugin->history()->undo_batch( $batch );              // [ 'undone' => n, 'skipped' => n, 'remaining' => n, 'batch' => id ]
+$plugin->missing()->get_missing( array( 'page' ) );    // templates pages use but the theme lacks, with a suggestion each
+$plugin->missing()->suggest( 'page', 'templates/old.php' ); // [ 'template' => ..., 'reason' => 'same_file' | 'same_name' | 'default' ]
+$plugin->preview()->url( 42, 'page-wide' );            // front end link for the current user, or '' when not allowed
 ```
 
 `Templates::MISSING` and `Templates::DEFAULT_TEMPLATE` are the special values for `reassign()` and `meta_query_for()`.
@@ -114,12 +144,19 @@ $plugin->history()->undo_batch( $batch );              // [ 'undone' => n, 'skip
 
 Templates come from `wp_get_theme()->get_page_templates()` and usage from the `_wp_page_template` post meta WordPress already keeps. For a theme that is not active, templates come from its PHP files (`Template Name`, `Template Post Type`), `customTemplates` in its `theme.json` (and its parent's), and custom templates saved for it in the Site Editor.
 
-The plugin stores three things:
+The plugin stores these:
 
 - **History**: one row per template change in the `{prefix}axle_ptu_history` table (post, old and new template, user ID, source, batch, time, whether it was undone). Rows are written in groups, one query per 100 changes. The table keeps the latest 10,000 rows and is trimmed every 50 inserts, and a daily event deletes rows older than 365 days. Both limits have filters. The user ID is covered by the personal data exporter, the eraser (the rows stay, the user becomes 0) and the privacy policy text, and deleting a user clears their ID from the history.
 - **Saved plans**: the option `axle_page_template_usage_theme_maps` (not autoloaded), one plan per theme. A plan is removed once it has been applied.
 - **Last switch result**: the option `axle_page_template_usage_switch_result`, for the notice with the Undo. It goes when you dismiss the notice or undo the switch.
+- **Missing template record**: the option `axle_page_template_usage_missing_state` (not autoloaded). A hash of the theme's template list, the names of the templates it offered, and which templates are missing since when. A scan compares the hash first, so a day with no change costs one option read.
+- **Email settings**: the option `axle_page_template_usage_missing_alert`, off by default, with the address.
+- **Dismissed notice**: the user meta `axle_page_template_usage_missing_dismissed`, a short code of the missing set that user dismissed. The notice comes back when something new goes missing.
 
-Uninstalling the plugin drops the table and removes both options.
+The scan runs after a theme update (a minute later, in its own request), after a theme switch, and once a day from WP-Cron (`axle_page_template_usage_scan`). The Check now button runs it at once. WordPress keeps a lost template in the page's meta and shows the default layout, so nothing is changed by a scan.
+
+A preview link is the page's own address plus two arguments: the template, and a token signed for the user, the page, the template and an expiry time. For that one request the page's stored template reads as the previewed one, which works for classic template files and block templates alike. The response is `noindex` and not cached.
+
+Uninstalling the plugin drops the table, removes the options and the user meta, and clears the scheduled events.
 
 Counts come from one grouped query per post type and stay in the object cache until a template or a post status changes, and an hour at most. Busy sites that save posts all day keep their cache.

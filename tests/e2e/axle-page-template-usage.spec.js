@@ -34,10 +34,10 @@ test.describe( 'Axle Page Template Usage', () => {
 		await expect( row( ids.plain ) ).toHaveText( 'Default' );
 		await expect( row( ids.noTitle ) ).toHaveText( 'Page No Title' );
 		await expect( row( ids.gone ) ).toContainText( 'Missing template' );
-		await expect( row( ids.gone ).locator( '.aptu-missing' ) ).toHaveCSS( 'color', 'rgb(179, 45, 46)' );
+		await expect( row( ids.gone ).locator( '.aptu-missing' ) ).toHaveCSS( 'color', 'rgb(138, 36, 36)' );
 		await expect( row( ids.gone ) ).toContainText( GONE );
 		await expect( page.locator( '.aptu-missing-notice' ) ).toContainText( '1 page uses a template the theme no longer has' );
-		await expect( page.locator( '.aptu-missing-notice' ).getByRole( 'link', { name: 'Fix in Axle Page Template Usage' } ) ).toHaveAttribute( 'href', /page=axle-page-template-usage/ );
+		await expect( page.locator( '.aptu-missing-notice' ).getByRole( 'link', { name: 'Review and move them' } ) ).toHaveAttribute( 'href', /page=axle-page-template-usage&tab=missing/ );
 	} );
 
 	test( 'filters the list by template, with counts in the dropdown', async ( { page } ) => {
@@ -93,6 +93,7 @@ test.describe( 'Axle Page Template Usage', () => {
 		const missingRow = section.locator( `tr[data-template="${ GONE }"]` );
 		await missingRow.locator( 'select[name="to"]' ).selectOption( NO_TITLE );
 		await missingRow.getByRole( 'button', { name: 'Move' } ).click();
+		await page.getByRole( 'button', { name: 'Move the items' } ).click();
 
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Moved 1 item to "Page No Title"' );
 		await expect( page.locator( `tr[data-template="${ GONE }"]` ) ).toHaveCount( 0 );
@@ -131,6 +132,7 @@ test.describe( 'Axle Page Template Usage', () => {
 		await expect( row ).toContainText( '620' );
 		await row.locator( 'select[name="to"]' ).selectOption( NO_TITLE );
 		await row.getByRole( 'button', { name: 'Move' } ).click();
+		await page.getByRole( 'button', { name: 'Move the items' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Moved 500 items to "Page No Title".' );
 		await expect( page.locator( '.notice-success' ) ).toContainText( '120 more are left.' );
 
@@ -138,6 +140,7 @@ test.describe( 'Axle Page Template Usage', () => {
 		await expect( row ).toContainText( '120' );
 		await row.locator( 'select[name="to"]' ).selectOption( NO_TITLE );
 		await row.getByRole( 'button', { name: 'Move' } ).click();
+		await page.getByRole( 'button', { name: 'Move the items' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Moved 120 items' );
 		await expect( page.locator( '.notice-success' ) ).not.toContainText( 'left' );
 		await expect( section.locator( 'tr[data-template="templates/bulk-gone.php"]' ) ).toHaveCount( 0 );
@@ -154,6 +157,8 @@ test.describe( 'Axle Page Template Usage', () => {
 		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [
 			'axle-page-template-usage/check-theme',
 			'axle-page-template-usage/get-history',
+			'axle-page-template-usage/get-missing',
+			'axle-page-template-usage/get-preview-url',
 			'axle-page-template-usage/get-report',
 			'axle-page-template-usage/reassign',
 		] );
@@ -164,6 +169,16 @@ test.describe( 'Axle Page Template Usage', () => {
 		expect( report.status ).toBe( 200 );
 		expect( report.body ).toMatchObject( { post_type: 'page', missing: 1 } );
 		expect( report.body.templates.find( ( row ) => row.slug === GONE ) ).toMatchObject( { status: 'missing', count: 1 } );
+
+		const found = await rest( 'GET', path( 'get-missing' ) );
+		expect( found.status ).toBe( 200 );
+		expect( found.body.total ).toBe( 1 );
+		expect( found.body.templates[ 0 ] ).toMatchObject( { post_type: 'page', slug: GONE, count: 1, suggestion: { template: 'default', reason: 'default' } } );
+
+		const link = await rest( 'GET', `${ path( 'get-preview-url' ) }?input[post_id]=${ ids.gone }&input[template]=${ NO_TITLE }` );
+		expect( link.status ).toBe( 200 );
+		expect( link.body.url ).toContain( 'axle_ptu_preview=' + NO_TITLE );
+		expect( ( await rest( 'GET', `${ path( 'get-preview-url' ) }?input[post_id]=${ ids.gone }&input[template]=not-a-template` ) ).status ).toBe( 400 );
 
 		const moved = await rest( 'POST', path( 'reassign' ), { input: { from: 'missing', to: NO_TITLE } } );
 		expect( moved.status ).toBe( 200 );

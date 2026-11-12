@@ -55,6 +55,7 @@ test( 'demo: find the pages on a missing template and move them', async ( { brow
 			await demo.pause( 1800 );
 			await demo.choose( missing.locator( 'select[name="to"]' ), 'page-no-title' );
 			await demo.click( missing.getByRole( 'button', { name: 'Move' } ), 300 );
+			await demo.click( page.getByRole( 'button', { name: 'Move the items' } ), 300 );
 			await expect( page.locator( '.notice-success' ) ).toContainText( 'Moved 2 items' );
 			await demo.pause( 2000 );
 

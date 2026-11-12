@@ -43,6 +43,8 @@ register_deactivation_hook(
 	static function (): void {
 		wp_clear_scheduled_hook( History::CRON );
 		wp_clear_scheduled_hook( ThemeCheck::CRON );
+		wp_clear_scheduled_hook( Missing::CRON );
+		wp_clear_scheduled_hook( Missing::CRON_SOON );
 	}
 );
 

@@ -69,6 +69,7 @@ final class HistoryTab implements Service {
 			'theme_switch' => __( 'Theme switch', 'axle-page-template-usage' ),
 			'cli'          => __( 'WP-CLI', 'axle-page-template-usage' ),
 			'ability'      => __( 'Ability', 'axle-page-template-usage' ),
+			'preview'      => __( 'Preview', 'axle-page-template-usage' ),
 			'undo'         => __( 'Undo', 'axle-page-template-usage' ),
 			'other'        => __( 'Other', 'axle-page-template-usage' ),
 		);
@@ -336,14 +337,7 @@ final class HistoryTab implements Service {
 	 * @param string $gmt Time in UTC, as stored.
 	 */
 	private function print_time( string $gmt ): void {
-		$timestamp = strtotime( $gmt . ' UTC' );
-		printf(
-			'<time datetime="%1$s" title="%2$s">%3$s</time>',
-			esc_attr( gmdate( 'c', (int) $timestamp ) ),
-			esc_attr( get_date_from_gmt( $gmt, get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) ),
-			/* translators: %s: time since, such as "5 minutes". */
-			esc_html( sprintf( __( '%s ago', 'axle-page-template-usage' ), human_time_diff( (int) $timestamp ) ) )
-		);
+		echo AxleUi::relative_time( (int) strtotime( $gmt . ' UTC' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi.
 	}
 
 	/**
@@ -491,7 +485,7 @@ final class HistoryTab implements Service {
 
 		ReportPage::enqueue_script();
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="aptu-inline-form" data-aptu-confirm="<?php echo esc_attr( $message ); ?>">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="aptu-inline-form" data-aptu-confirm="<?php echo esc_attr( $message ); ?>" data-aptu-confirm-label="<?php esc_attr_e( 'Undo the changes', 'axle-page-template-usage' ); ?>" data-aptu-cancel-label="<?php esc_attr_e( 'Keep them', 'axle-page-template-usage' ); ?>">
 			<?php wp_nonce_field( self::ACTION_UNDO_BATCH . $batch ); ?>
 			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION_UNDO_BATCH ); ?>">
 			<input type="hidden" name="batch" value="<?php echo esc_attr( $batch ); ?>">
