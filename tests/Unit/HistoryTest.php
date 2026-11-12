@@ -215,6 +215,7 @@ final class HistoryTest extends TestCase {
 
 	public function test_an_entry_is_blocked_when_the_page_changed_again(): void {
 		Functions\when( 'get_post_meta' )->justReturn( 'page-third' );
+		Functions\when( 'current_user_can' )->justReturn( true );
 
 		$this->assertSame(
 			array(
@@ -240,6 +241,20 @@ final class HistoryTest extends TestCase {
 		Functions\when( 'current_user_can' )->justReturn( false );
 		$this->assertSame( 'cannot_edit', $this->history->blocker( $this->entry() )['code'] );
 		$this->assertNull( $this->history->blocker( $this->entry(), false ), 'WP-CLI has no current user to check.' );
+	}
+
+	public function test_someone_who_may_not_edit_the_page_is_not_told_its_current_template(): void {
+		Functions\when( 'get_post_meta' )->justReturn( 'page-secret' );
+		Functions\when( 'current_user_can' )->justReturn( false );
+
+		$this->assertSame(
+			array(
+				'code'    => 'cannot_edit',
+				'current' => '',
+			),
+			$this->history->blocker( $this->entry() ),
+			'Not "changed", which would name the template the page uses now.'
+		);
 	}
 
 	public function test_the_can_undo_filter_has_the_last_word(): void {
@@ -284,6 +299,7 @@ final class HistoryTest extends TestCase {
 
 	public function test_undoing_a_blocked_entry_changes_nothing_and_says_why(): void {
 		Functions\when( 'get_post_meta' )->justReturn( 'page-third' );
+		Functions\when( 'current_user_can' )->justReturn( true );
 		$this->db->row = $this->entry();
 		Functions\expect( 'update_post_meta' )->never();
 
@@ -382,5 +398,45 @@ final class HistoryTest extends TestCase {
 		$this->assertStringContainsString( "old_template LIKE '%wide\\_page%'", $sql );
 		$this->assertStringContainsString( "created >= '2026-11-01 00:00:00'", $sql );
 		$this->assertStringContainsString( "created <= '2026-11-12 23:59:59'", $sql );
+	}
+
+	public function test_query_keeps_only_the_post_types_given_and_an_empty_list_keeps_none(): void {
+		$this->history->query( array( 'post_types' => array( 'page', 'post' ) ) );
+		$this->history->query( array( 'post_types' => array() ) );
+		$this->history->query( array() );
+
+		$this->assertStringContainsString( "( 0 = 1 OR post_type IN ( 'page', 'post' ) )", $this->db->queries[0] );
+		$this->assertStringContainsString( "( 0 = 1 OR post_type IN ( '' ) )", $this->db->queries[2], 'Every entry has a post type, so this matches none.' );
+		$this->assertStringContainsString( "( 1 = 1 OR post_type IN ( '' ) )", $this->db->queries[4], 'No list means every post type, for WP-CLI and the privacy exporter.' );
+	}
+
+	public function test_a_batch_only_counts_and_undoes_the_post_types_given(): void {
+		Functions\when( 'update_meta_cache' )->justReturn( array() );
+		$this->db->row     = (object) array(
+			'source'  => 'theme_switch',
+			'user_id' => 1,
+			'created' => '2026-11-12 10:00:00',
+			'total'   => 1,
+			'open'    => 1,
+		);
+		$this->db->results = array( array() );
+
+		$this->history->undo_batch( 'abc', 0, true, array( 'page' ) );
+
+		$this->assertStringContainsString( "WHERE batch = 'abc' AND ( 0 = 1 OR post_type IN ( 'page' ) )", $this->db->queries[0], 'The batch summary.' );
+		$this->assertStringContainsString( "AND id < 9223372036854775807 AND ( 0 = 1 OR post_type IN ( 'page' ) ) ORDER BY id DESC", $this->db->queries[1], 'The entries to undo.' );
+	}
+
+	public function test_a_batch_with_no_entries_of_the_post_types_given_is_unknown(): void {
+		$this->db->row = (object) array( 'total' => 0 );
+
+		$this->assertInstanceOf( \WP_Error::class, $this->history->undo_batch( 'abc', 0, true, array( 'page' ) ) );
+		$this->assertNull( $this->history->get_batch( 'abc', array() ) );
+	}
+
+	public function test_the_users_filter_only_lists_people_with_changes_of_the_post_types_given(): void {
+		$this->history->get_user_ids( 50, array( 'page' ) );
+
+		$this->assertStringContainsString( "WHERE user_id > 0 AND ( 0 = 1 OR post_type IN ( 'page' ) ) ORDER BY user_id LIMIT 50", $this->db->queries[0] );
 	}
 }

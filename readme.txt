@@ -44,7 +44,7 @@ Free and open source under the GPL. No pro version, no upsells, no ads in wp-adm
 
 = Privacy =
 
-The history stores the ID of the user who changed a template, with the page, the templates and the time. It keeps the latest 10,000 changes and deletes entries older than a year (both can be changed with filters). It is shown only to users who can edit pages. The plugin adds this to the privacy policy guide, to the personal data exporter, and to the eraser, which keeps each change but removes the link to the person. Uninstalling the plugin deletes the history table and saved plans.
+The history stores the ID of the user who changed a template, with the page, the templates and the time. It keeps the latest 10,000 changes and deletes entries older than a year (both can be changed with filters). It is shown only to users who can edit pages, and each of them only sees the changes of the post types they can edit. The plugin adds this to the privacy policy guide, to the personal data exporter, and to the eraser, which keeps each change but removes the link to the person. Uninstalling the plugin deletes the history table and saved plans.
 
 Besides that, nothing is sent anywhere. Free and open source under the GPL, no tracking.
 
@@ -57,6 +57,10 @@ Part of [Axle](https://axlewp.com/) by AryanX, a family of free plugins for runn
 = Why does a page show "Missing template"? =
 
 The page was saved with a template that the active theme does not provide any more. This usually happens after a theme switch, or after a template file is renamed or deleted. WordPress shows the default template for that page. Pick a new template in the editor, or in Quick Edit, to clear it.
+
+= Who can use it? =
+
+People who can edit pages, which by default means Editors and Administrators. Each person only sees the post types they can edit: someone who cannot edit posts sees nothing about posts, not in the report, the history or the abilities. Checking a theme lists the installed themes, so it is only for people who can switch themes. Both can be changed with filters.
 
 = Does checking a theme change anything? =
 

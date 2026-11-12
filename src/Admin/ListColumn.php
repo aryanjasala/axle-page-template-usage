@@ -81,7 +81,7 @@ final class ListColumn implements Service {
 	 * @return mixed
 	 */
 	public function add_history_action( $actions, $post ) {
-		if ( ! is_array( $actions ) || ! $post instanceof \WP_Post || ! current_user_can( ReportPage::capability() ) ) {
+		if ( ! is_array( $actions ) || ! $post instanceof \WP_Post || ! ReportPage::can_access( $post->post_type ) ) {
 			return $actions;
 		}
 

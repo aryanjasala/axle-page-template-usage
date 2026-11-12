@@ -197,6 +197,23 @@ final class History implements Service {
 	}
 
 	/**
+	 * Values for the post type filter in the queries below: `( %d = 1 OR post_type IN ( %s, ... ) )`.
+	 *
+	 * @param string[]|null $post_types Post types to keep, null for every one, an empty list for none.
+	 * @return array{0: int, 1: string[]} 1 to skip the filter or 0 to apply it, and the post types to match (at least one).
+	 */
+	private static function post_type_filter( ?array $post_types ): array {
+		if ( null === $post_types ) {
+			return array( 1, array( '' ) );
+		}
+
+		$post_types = array_values( array_unique( array_map( 'strval', $post_types ) ) );
+
+		// Every entry has a post type, so an empty name matches none.
+		return array( 0, $post_types ? $post_types : array( '' ) );
+	}
+
+	/**
 	 * A new batch ID, to tie the changes of one move or one theme switch together.
 	 *
 	 * @return string 32 characters.
@@ -502,7 +519,8 @@ final class History implements Service {
 	/**
 	 * Entries, newest first.
 	 *
-	 * @param array<string, mixed> $args post_id, post_type, source, user_id, batch, template, from (Y-m-d), to (Y-m-d), page, per_page.
+	 * @param array<string, mixed> $args post_id, post_type, source, user_id, batch, template, from (Y-m-d), to (Y-m-d), page, per_page,
+	 *                                   and post_types: only entries of these post types (string[]), such as the ones the current user can edit.
 	 * @return array{items: object[], total: int}
 	 */
 	public function query( array $args ): array {
@@ -523,8 +541,12 @@ final class History implements Service {
 		$source   = (string) ( $args['source'] ?? '' );
 		$batch    = (string) ( $args['batch'] ?? '' );
 
+		list( $skip_types, $types ) = self::post_type_filter( isset( $args['post_types'] ) && is_array( $args['post_types'] ) ? $args['post_types'] : null );
+		$marks                      = implode( ', ', array_fill( 0, count( $types ), '%s' ) );
+
 		// One fixed query, so there is nothing to build by hand: each filter is "skip it, or match it".
 		// A post of 0 is no filter. A user of 0 means "System", so it is a filter. The table keeps 10,000 rows at most.
+		// The post types the user may see get one placeholder each.
 		$where = "( %d = 1 OR post_id = %d )
 			AND ( %s = '' OR post_type = %s )
 			AND ( %s = '' OR source = %s )
@@ -532,7 +554,8 @@ final class History implements Service {
 			AND ( %s = '' OR batch = %s )
 			AND ( %s = '' OR old_template LIKE %s OR new_template LIKE %s )
 			AND ( %s = '' OR created >= %s )
-			AND ( %s = '' OR created <= %s )";
+			AND ( %s = '' OR created <= %s )
+			AND ( %d = 1 OR post_type IN ( {$marks} ) )";
 		$vars  = array(
 			$post_id ? 0 : 1,
 			$post_id,
@@ -551,11 +574,12 @@ final class History implements Service {
 			$from,
 			$to,
 			$to,
+			$skip_types,
 		);
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$count_args = array_merge( array( $table ), $vars );
-		$list_args  = array_merge( array( $table ), $vars, array( $per_page, $offset ) );
+		$count_args = array_merge( array( $table ), $vars, $types );
+		$list_args  = array_merge( array( $table ), $vars, $types, array( $per_page, $offset ) );
 		$total      = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM %i WHERE {$where}", $count_args ) );
 		$list_sql   = "SELECT * FROM %i WHERE {$where} ORDER BY id DESC LIMIT %d OFFSET %d";
 		$items      = (array) $wpdb->get_results( $wpdb->prepare( $list_sql, $list_args ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
@@ -588,10 +612,11 @@ final class History implements Service {
 	/**
 	 * Summary of one batch: how many changes, who, when, and how many are still undone-able on paper.
 	 *
-	 * @param string $batch Batch ID.
-	 * @return array{source: string, user_id: int, created: string, total: int, open: int}|null Null for an unknown batch.
+	 * @param string        $batch      Batch ID.
+	 * @param string[]|null $post_types Only count entries of these post types, or null for every one.
+	 * @return array{source: string, user_id: int, created: string, total: int, open: int}|null Null for an unknown batch, or one with no entries of those post types.
 	 */
-	public function get_batch( string $batch ): ?array {
+	public function get_batch( string $batch, ?array $post_types = null ): ?array {
 		global $wpdb;
 
 		if ( '' === $batch ) {
@@ -601,8 +626,10 @@ final class History implements Service {
 		$this->flush();
 		$table = self::table();
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT source, user_id, MIN(created) AS created, COUNT(*) AS total, SUM(undone = 0) AS open FROM %i WHERE batch = %s', $table, $batch ) );
+		list( $skip_types, $types ) = self::post_type_filter( $post_types );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT source, user_id, MIN(created) AS created, COUNT(*) AS total, SUM(undone = 0) AS open FROM %i WHERE batch = %s AND ( %d = 1 OR post_type IN ( ' . implode( ', ', array_fill( 0, count( $types ), '%s' ) ) . ' ) )', array_merge( array( $table, $batch, $skip_types ), $types ) ) );
 		if ( ! $row || ! (int) $row->total ) {
 			return null;
 		}
@@ -619,17 +646,20 @@ final class History implements Service {
 	/**
 	 * Users with entries, for the filter dropdown.
 	 *
-	 * @param int $limit Most users to return.
+	 * @param int           $limit      Most users to return.
+	 * @param string[]|null $post_types Only users with entries of these post types, or null for every one.
 	 * @return int[]
 	 */
-	public function get_user_ids( int $limit = 50 ): array {
+	public function get_user_ids( int $limit = 50, ?array $post_types = null ): array {
 		global $wpdb;
 
 		$this->flush();
 		$table = self::table();
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( 'SELECT DISTINCT user_id FROM %i WHERE user_id > 0 ORDER BY user_id LIMIT %d', $table, $limit ) ) );
+		list( $skip_types, $types ) = self::post_type_filter( $post_types );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( 'SELECT DISTINCT user_id FROM %i WHERE user_id > 0 AND ( %d = 1 OR post_type IN ( ' . implode( ', ', array_fill( 0, count( $types ), '%s' ) ) . ' ) ) ORDER BY user_id LIMIT %d', array_merge( array( $table, $skip_types ), $types, array( $limit ) ) ) ) );
 	}
 
 	/**
@@ -655,17 +685,18 @@ final class History implements Service {
 			);
 		}
 
+		// Checked before the template, so someone who may not edit the post learns nothing about it.
+		if ( $check_user && ! current_user_can( 'edit_post', $post_id ) ) {
+			return array(
+				'code'    => 'cannot_edit',
+				'current' => '',
+			);
+		}
+
 		$current = (string) get_post_meta( $post_id, Templates::META_KEY, true );
 		if ( self::normalize( $current ) !== self::normalize( (string) $entry->new_template ) ) {
 			return array(
 				'code'    => 'changed',
-				'current' => $current,
-			);
-		}
-
-		if ( $check_user && ! current_user_can( 'edit_post', $post_id ) ) {
-			return array(
-				'code'    => 'cannot_edit',
 				'current' => $current,
 			);
 		}
@@ -745,15 +776,16 @@ final class History implements Service {
 	 * Entries that cannot be undone (the page changed since, or is gone) are skipped.
 	 * Run it again while `remaining` is above 0.
 	 *
-	 * @param string $batch      Batch ID.
-	 * @param int    $limit      Most changes to undo in this call, 0 for all.
-	 * @param bool   $check_user Skip pages the current user may not edit.
+	 * @param string        $batch      Batch ID.
+	 * @param int           $limit      Most changes to undo in this call, 0 for all.
+	 * @param bool          $check_user Skip pages the current user may not edit.
+	 * @param string[]|null $post_types Only undo entries of these post types, such as the ones the current user can edit. Null for every one.
 	 * @return array{undone: int, skipped: int, remaining: int, batch: string}|\WP_Error `batch` is the batch the undo itself was recorded under.
 	 */
-	public function undo_batch( string $batch, int $limit = 0, bool $check_user = true ) {
+	public function undo_batch( string $batch, int $limit = 0, bool $check_user = true, ?array $post_types = null ) {
 		global $wpdb;
 
-		if ( null === $this->get_batch( $batch ) ) {
+		if ( null === $this->get_batch( $batch, $post_types ) ) {
 			return new \WP_Error( 'axle_page_template_usage_unknown_batch', __( 'That batch does not exist any more.', 'axle-page-template-usage' ) );
 		}
 
@@ -764,11 +796,13 @@ final class History implements Service {
 		$undo_id = $this->new_batch();
 		$chunk   = 200;
 
+		list( $skip_types, $types ) = self::post_type_filter( $post_types );
+
 		$previous = $this->enter( 'undo', $undo_id );
 		try {
 			while ( true ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$entries = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE batch = %s AND undone = 0 AND id < %d ORDER BY id DESC LIMIT %d', $table, $batch, $cursor, $chunk ) );
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$entries = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i WHERE batch = %s AND undone = 0 AND id < %d AND ( %d = 1 OR post_type IN ( ' . implode( ', ', array_fill( 0, count( $types ), '%s' ) ) . ' ) ) ORDER BY id DESC LIMIT %d', array_merge( array( $table, $batch, $cursor, $skip_types ), $types, array( $chunk ) ) ) );
 				if ( ! $entries ) {
 					break;
 				}
@@ -793,8 +827,8 @@ final class History implements Service {
 
 		$remaining = 0;
 		if ( PHP_INT_MAX !== $cursor ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE batch = %s AND undone = 0 AND id < %d', $table, $batch, $cursor ) );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$remaining = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE batch = %s AND undone = 0 AND id < %d AND ( %d = 1 OR post_type IN ( ' . implode( ', ', array_fill( 0, count( $types ), '%s' ) ) . ' ) )', array_merge( array( $table, $batch, $cursor, $skip_types ), $types ) ) );
 		}
 		if ( ! $limit || $undone < $limit ) {
 			$remaining = 0;

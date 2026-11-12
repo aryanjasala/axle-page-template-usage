@@ -172,8 +172,10 @@ test.describe( 'Axle Page Template Usage', () => {
 		expect( wp( 'post', 'meta', 'get', String( ids.gone ), '_wp_page_template' ) ).toBe( NO_TITLE );
 		expect( ( await rest( 'GET', path( 'get-report' ) ) ).body.missing ).toBe( 0 );
 
-		const unknown = await rest( 'GET', `${ path( 'get-report' ) }?input[post_type]=nope` );
-		expect( unknown.body.code ).toBe( 'axle_page_template_usage_no_templates' );
+		// A post type that does not exist is refused, like one the user cannot edit. One without templates says so.
+		expect( ( await rest( 'GET', `${ path( 'get-report' ) }?input[post_type]=nope` ) ).status ).toBe( 403 );
+		const plain = await rest( 'GET', `${ path( 'get-report' ) }?input[post_type]=post` );
+		expect( plain.body.code ).toBe( 'axle_page_template_usage_no_templates' );
 	} );
 
 	test( 'WP-CLI lists usage and reassigns', () => {

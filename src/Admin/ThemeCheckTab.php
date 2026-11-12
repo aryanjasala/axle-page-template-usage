@@ -85,7 +85,7 @@ final class ThemeCheckTab implements Service {
 	 * @return mixed
 	 */
 	public function add_themes_link( $themes ) {
-		if ( ! is_array( $themes ) || ! current_user_can( ReportPage::capability() ) ) {
+		if ( ! is_array( $themes ) || ! ReportPage::can_check_themes() ) {
 			return $themes;
 		}
 
@@ -150,12 +150,12 @@ final class ThemeCheckTab implements Service {
 	}
 
 	/**
-	 * Prints what a switch to one theme would do, with the mapping form.
+	 * Prints what a switch to one theme would do to the post types the user can edit, with the mapping form.
 	 *
 	 * @param string $stylesheet Theme folder name.
 	 */
 	private function render_result( string $stylesheet ): void {
-		$result = $this->check->check( $stylesheet );
+		$result = $this->check->check( $stylesheet, null, ReportPage::accessible_types() );
 
 		if ( is_wp_error( $result ) ) {
 			printf( '<div class="notice notice-error inline"><p>%s</p></div>', esc_html( $result->get_error_message() ) );
@@ -292,7 +292,12 @@ final class ThemeCheckTab implements Service {
 				$sample = $this->check->get_sample( $post_type, $row['slug'] );
 				$links  = array();
 				foreach ( $sample as $item ) {
-					$links[] = sprintf( '<a href="%s">%s</a>', esc_url( (string) get_edit_post_link( $item['id'] ) ), esc_html( $item['title'] ) );
+					// Drafts and private items of other people only show to those allowed to see them.
+					if ( ! current_user_can( 'read_post', $item['id'] ) ) {
+						continue;
+					}
+					$edit    = get_edit_post_link( $item['id'] );
+					$links[] = $edit ? sprintf( '<a href="%s">%s</a>', esc_url( $edit ), esc_html( $item['title'] ) ) : esc_html( $item['title'] );
 				}
 				echo wp_kses( implode( ', ', $links ), array( 'a' => array( 'href' => true ) ) );
 				?>
@@ -326,7 +331,9 @@ final class ThemeCheckTab implements Service {
 
 		$stylesheet = isset( $_POST['theme'] ) ? sanitize_text_field( wp_unslash( $_POST['theme'] ) ) : '';
 		$raw        = isset( $_POST['map'] ) && is_array( $_POST['map'] ) ? map_deep( wp_unslash( $_POST['map'] ), 'sanitize_text_field' ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized by map_deep.
-		$result     = $this->check->save_mapping( $stylesheet, (array) $raw );
+		// A plan only covers the post types this user can edit.
+		$raw    = array_intersect_key( (array) $raw, array_flip( ReportPage::accessible_types() ) );
+		$result = $this->check->save_mapping( $stylesheet, $raw );
 
 		if ( is_wp_error( $result ) ) {
 			ReportPage::redirect_back( array( 'aptu_error' => 'mapping' ), self::url( $stylesheet ) );
@@ -377,7 +384,7 @@ final class ThemeCheckTab implements Service {
 	 * Stops users who may not change templates this way.
 	 */
 	private function authorize(): void {
-		if ( ! current_user_can( ReportPage::capability() ) || ! current_user_can( ThemeCheck::capability() ) ) {
+		if ( ! ReportPage::can_check_themes() ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to change templates for these items.', 'axle-page-template-usage' ), 403 );
 		}
 	}
@@ -388,7 +395,7 @@ final class ThemeCheckTab implements Service {
 	public function render_switch_notice(): void {
 		$screen = get_current_screen();
 		$state  = $this->check->get_result();
-		if ( ! $state || ! $screen || ! current_user_can( ReportPage::capability() ) || ! in_array( $screen->base, array( 'dashboard', 'themes', 'edit', 'appearance_page_' . ReportPage::SLUG, 'theme-install' ), true ) ) {
+		if ( ! $state || ! $screen || ! ReportPage::can_check_themes() || ! in_array( $screen->base, array( 'dashboard', 'themes', 'edit', 'appearance_page_' . ReportPage::SLUG, 'theme-install' ), true ) ) {
 			return;
 		}
 

@@ -148,6 +148,9 @@ final class HistoryTab implements Service {
 		);
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
+		// Only the changes of post types this user can edit.
+		$args['post_types'] = ReportPage::accessible_types();
+
 		return $args;
 	}
 
@@ -184,7 +187,7 @@ final class HistoryTab implements Service {
 
 		<?php
 		if ( '' !== $args['batch'] ) {
-			$this->render_batch( (string) $args['batch'] );
+			$this->render_batch( (string) $args['batch'], (array) $args['post_types'] );
 		}
 		?>
 
@@ -229,7 +232,7 @@ final class HistoryTab implements Service {
 	 * @param array<string, mixed> $args Filters in use.
 	 */
 	private function render_filters( array $args ): void {
-		$users = $this->history->get_user_ids();
+		$users = $this->history->get_user_ids( 50, (array) $args['post_types'] );
 		?>
 		<form method="get" class="aptu-history__filters">
 			<input type="hidden" name="page" value="<?php echo esc_attr( ReportPage::SLUG ); ?>">
@@ -430,10 +433,11 @@ final class HistoryTab implements Service {
 	/**
 	 * Prints the summary of one batch and the button that undoes all of it.
 	 *
-	 * @param string $batch Batch ID.
+	 * @param string   $batch      Batch ID.
+	 * @param string[] $post_types Post types the user can edit. Only their changes count.
 	 */
-	private function render_batch( string $batch ): void {
-		$summary = $this->history->get_batch( $batch );
+	private function render_batch( string $batch, array $post_types ): void {
+		$summary = $this->history->get_batch( $batch, $post_types );
 		$sources = self::source_labels();
 
 		if ( ! $summary ) {
@@ -547,12 +551,20 @@ final class HistoryTab implements Service {
 	}
 
 	/**
-	 * Title of a post, or a stand-in when it has none.
+	 * Title of a post, or a stand-in when it has none or the user may not see it.
 	 *
 	 * @param int $post_id Post ID.
 	 * @return string
 	 */
 	private function post_title( int $post_id ): string {
+		// Drafts and private pages of other people keep their titles to those allowed to read them. So does an
+		// item that is now of a post type this user cannot edit (its post type was changed after the entry).
+		$post = get_post( $post_id );
+		if ( $post && ( ! ReportPage::can_access( $post->post_type ) || ! current_user_can( 'read_post', $post_id ) ) ) {
+			/* translators: %d: post ID. */
+			return sprintf( __( 'A page you cannot view (ID %d)', 'axle-page-template-usage' ), $post_id );
+		}
+
 		$title = get_the_title( $post_id );
 
 		/* translators: %d: post ID. */
@@ -583,6 +595,12 @@ final class HistoryTab implements Service {
 		check_admin_referer( self::ACTION_UNDO . $id );
 		$this->authorize();
 
+		// An entry of a post type this user cannot edit is treated like one that is gone.
+		$entry = $this->history->get( $id );
+		if ( ! $entry || ! ReportPage::can_access( (string) $entry->post_type ) ) {
+			ReportPage::redirect_back( array( 'aptu_blocked' => 'gone' ), self::url() );
+		}
+
 		$result = $this->history->undo_entry( $id );
 		$args   = array();
 
@@ -605,7 +623,7 @@ final class HistoryTab implements Service {
 		check_admin_referer( self::ACTION_UNDO_BATCH . $batch );
 		$this->authorize();
 
-		$result = $this->history->undo_batch( (string) $batch, self::undo_limit() );
+		$result = $this->history->undo_batch( (string) $batch, self::undo_limit(), true, ReportPage::accessible_types() );
 		if ( is_wp_error( $result ) ) {
 			ReportPage::redirect_back( array( 'aptu_blocked' => 'gone' ), self::url(), false );
 		}
