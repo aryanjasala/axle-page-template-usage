@@ -65,6 +65,7 @@ test.describe( 'Theme check and template history', () => {
 		const row2 = page.locator( `tr[data-template="${ GONE }"]` );
 		await row2.locator( 'select[name="to"]' ).selectOption( NO_TITLE );
 		await row2.getByRole( 'button', { name: 'Move' } ).click();
+		await page.getByRole( 'button', { name: 'Move the items' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Moved 2 items' );
 		const moves = history( '--source=bulk_move' );
 		expect( moves ).toHaveLength( 2 );
@@ -78,20 +79,20 @@ test.describe( 'Theme check and template history', () => {
 		await page.goto( `/wp-admin/themes.php?page=axle-page-template-usage&tab=history&batch=${ batch }` );
 		await expect( page.locator( '.aptu-batch' ) ).toContainText( 'Not undone yet' );
 
-		let asked = '';
-		page.once( 'dialog', ( dialog ) => {
-			asked = dialog.message();
-			dialog.dismiss();
-		} );
+		// The confirm step opens in place, says what changes, and "Keep them" changes nothing.
 		await page.getByRole( 'button', { name: 'Undo this batch' } ).click();
-		expect( asked ).toContain( 'Undo up to 2 changes?' );
-		expect( asked ).toContain( 'left alone' );
+		const confirm = page.locator( '.aptu-confirm' );
+		await expect( confirm ).toContainText( 'Undo up to 2 changes?' );
+		await expect( confirm ).toContainText( 'left alone' );
+		await expect( confirm.getByRole( 'button', { name: 'Undo the changes' } ) ).toBeFocused();
+		await confirm.getByRole( 'button', { name: 'Keep them' } ).click();
+		await expect( confirm ).toHaveCount( 0 );
 		expect( metaOf( ids.b ) ).toBe( NO_TITLE );
 
 		// A page that changed after the batch is left alone.
 		setMeta( ids.c, 'default' );
-		page.once( 'dialog', ( dialog ) => dialog.accept() );
 		await page.getByRole( 'button', { name: 'Undo this batch' } ).click();
+		await page.getByRole( 'button', { name: 'Undo the changes' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Undone: 1 page is back on its earlier template.' );
 		await expect( page.locator( '.notice-success' ) ).toContainText( '1 page was left alone' );
 		expect( metaOf( ids.b ) ).toBe( GONE );
@@ -202,13 +203,9 @@ test.describe( 'Theme check and template history', () => {
 		// The plan was used up.
 		expect( wp( 'option', 'get', 'axle_page_template_usage_theme_maps', '--format=json' ) ).toBe( '[]' );
 
-		let asked = '';
-		page.once( 'dialog', ( dialog ) => {
-			asked = dialog.message();
-			dialog.accept();
-		} );
 		await notice.getByRole( 'button', { name: 'Undo this batch' } ).click();
-		expect( asked ).toContain( 'Undo up to 2 changes?' );
+		await expect( page.locator( '.aptu-confirm' ) ).toContainText( 'Undo up to 2 changes?' );
+		await page.getByRole( 'button', { name: 'Undo the changes' } ).click();
 		await expect( page.locator( '.notice-success' ) ).toContainText( 'Undone: 2 pages' );
 		expect( metaOf( ids.a ) ).toBe( NO_TITLE );
 		expect( metaOf( ids.b ) ).toBe( GONE );

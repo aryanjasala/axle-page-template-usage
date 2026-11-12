@@ -49,7 +49,7 @@ test.describe( 'Access: only the post types you can edit', () => {
 		// The admin can edit both, so sees both.
 		await page.goto( REPORT );
 		await expect( page.locator( '.aptu-report__section h2' ) ).toHaveText( [ 'Posts', 'Pages' ] );
-		await expect( page.locator( '.nav-tab-wrapper a' ) ).toHaveText( [ 'Templates', 'Check a theme', 'History' ] );
+		await expect( page.locator( '.nav-tab-wrapper a' ) ).toHaveText( [ 'Templates', 'Missing 2', 'Check a theme', 'History' ] );
 
 		const { context, page: user } = await logInAs( browser, USER, PASS );
 
@@ -59,7 +59,7 @@ test.describe( 'Access: only the post types you can edit', () => {
 		await expect( user.locator( `.aptu-report__section tr[data-template="${ PAGE_GONE }"]` ) ).toContainText( '1' );
 
 		// The theme check lists installed themes, so it needs switch_themes as well.
-		await expect( user.locator( '.nav-tab-wrapper a' ) ).toHaveText( [ 'Templates', 'History' ] );
+		await expect( user.locator( '.nav-tab-wrapper a' ) ).toHaveText( [ 'Templates', 'Missing 1', 'History' ] );
 		await user.goto( `${ REPORT }&tab=theme&theme=twentytwentyfour` );
 		await expect( user.locator( '.aptu-theme-picker' ) ).toHaveCount( 0 );
 		await expect( user.locator( '.aptu-report__section h2' ) ).toHaveText( [ 'Pages' ] );
@@ -107,6 +107,15 @@ test.describe( 'Access: only the post types you can edit', () => {
 			expect( refused.status, `get-report for "${ postType }"` ).toBe( 403 );
 			expect( JSON.stringify( refused.body ) ).not.toContain( POST_GONE );
 		}
+
+		// The missing-templates ability only covers the post types the user can edit.
+		const missingAll = await run( 'get-missing', {} );
+		expect( missingAll.status ).toBe( 200 );
+		expect( missingAll.body.templates.map( ( row ) => row.post_type ) ).toEqual( [ 'page' ] );
+		expect( JSON.stringify( missingAll.body ) ).not.toContain( POST_GONE );
+		expect( ( await run( 'get-missing', { post_type: 'Post' } ) ).status ).toBe( 403 );
+		// A preview link for a page needs the right to edit that page.
+		expect( ( await run( 'get-preview-url', { post_id: ids.post, template: 'default' } ) ).status ).toBe( 403 );
 
 		expect( ( await run( 'reassign', { post_type: 'Post', from: 'missing', to: 'default' }, 'POST' ) ).status ).toBe( 403 );
 		expect( wp( 'post', 'meta', 'get', String( ids.post ), '_wp_page_template' ) ).toBe( POST_GONE );

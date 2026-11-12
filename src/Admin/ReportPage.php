@@ -46,16 +46,34 @@ final class ReportPage implements Service {
 	private ?HistoryTab $history_tab;
 
 	/**
+	 * The missing templates tab.
+	 *
+	 * @var MissingTab|null
+	 */
+	private ?MissingTab $missing_tab;
+
+	/**
+	 * The preview picker.
+	 *
+	 * @var PreviewTab|null
+	 */
+	private ?PreviewTab $preview_tab;
+
+	/**
 	 * Sets up the report.
 	 *
 	 * @param Templates          $templates   Template data.
 	 * @param ThemeCheckTab|null $theme_tab   The theme check tab.
 	 * @param HistoryTab|null    $history_tab The history tab.
+	 * @param MissingTab|null    $missing_tab The missing templates tab.
+	 * @param PreviewTab|null    $preview_tab The preview picker.
 	 */
-	public function __construct( Templates $templates, ?ThemeCheckTab $theme_tab = null, ?HistoryTab $history_tab = null ) {
+	public function __construct( Templates $templates, ?ThemeCheckTab $theme_tab = null, ?HistoryTab $history_tab = null, ?MissingTab $missing_tab = null, ?PreviewTab $preview_tab = null ) {
 		$this->templates   = $templates;
 		$this->theme_tab   = $theme_tab;
 		$this->history_tab = $history_tab;
+		$this->missing_tab = $missing_tab;
+		$this->preview_tab = $preview_tab;
 	}
 
 	/**
@@ -77,7 +95,7 @@ final class ReportPage implements Service {
 	 */
 	public static function redirect_back( array $args, string $fallback, bool $use_referer = true ): void {
 		$target = $use_referer ? wp_get_referer() : false;
-		$target = $target ? remove_query_arg( array( 'aptu_undone', 'aptu_undo_skipped', 'aptu_undo_left', 'aptu_blocked', 'aptu_saved', 'aptu_error', 'aptu_moved', 'aptu_left', 'aptu_skipped', 'aptu_type', 'aptu_to', 'aptu_batch', 'activated' ), $target ) : $fallback;
+		$target = $target ? remove_query_arg( array( 'aptu_undone', 'aptu_undo_skipped', 'aptu_undo_left', 'aptu_blocked', 'aptu_saved', 'aptu_error', 'aptu_moved', 'aptu_scanned', 'aptu_alert', 'aptu_left', 'aptu_skipped', 'aptu_type', 'aptu_to', 'aptu_batch', 'activated' ), $target ) : $fallback;
 
 		wp_safe_redirect( add_query_arg( $args, $target ) );
 		exit;
@@ -87,7 +105,7 @@ final class ReportPage implements Service {
 	 * Loads the script that asks before a destructive form is sent.
 	 */
 	public static function enqueue_script(): void {
-		wp_enqueue_script( 'axle-page-template-usage', plugins_url( 'assets/admin.js', PLUGIN_FILE ), array(), VERSION, true );
+		wp_enqueue_script( 'axle-page-template-usage', plugins_url( 'assets/admin.js', PLUGIN_FILE ), array( 'wp-a11y' ), VERSION, true );
 	}
 
 	/**
@@ -96,6 +114,23 @@ final class ReportPage implements Service {
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_page' ) );
 		add_action( 'admin_post_' . self::ACTION, array( $this, 'handle_reassign' ) );
+		add_filter( 'plugin_action_links_' . plugin_basename( PLUGIN_FILE ), array( $this, 'add_action_link' ) );
+	}
+
+	/**
+	 * Adds a link to the report in the plugin's row on the Plugins screen.
+	 *
+	 * @param mixed $links Action links.
+	 * @return mixed
+	 */
+	public function add_action_link( $links ) {
+		if ( ! is_array( $links ) || ! current_user_can( self::capability() ) ) {
+			return $links;
+		}
+
+		array_unshift( $links, sprintf( '<a href="%s">%s</a>', esc_url( self::url() ), esc_html__( 'Template usage', 'axle-page-template-usage' ) ) );
+
+		return $links;
 	}
 
 	/**
@@ -193,7 +228,48 @@ final class ReportPage implements Service {
 
 		if ( $hook ) {
 			add_action( "admin_print_styles-{$hook}", array( $this, 'enqueue_styles' ) );
+			add_action( "load-{$hook}", array( $this, 'add_help' ) );
 		}
+	}
+
+	/**
+	 * Adds the Help tabs: an overview, and one tab per job of this screen.
+	 */
+	public function add_help(): void {
+		AxleUi::help_tabs(
+			array(
+				array(
+					'id'      => 'overview',
+					'title'   => __( 'Overview', 'axle-page-template-usage' ),
+					'content' => '<p>' . esc_html__( 'This screen shows which template each page uses. The Templates tab counts the pages on every template. Missing finds pages whose template is gone. Check a theme tells you what a theme switch would break. History lists every template change.', 'axle-page-template-usage' ) . '</p>',
+				),
+				array(
+					'id'      => 'templates',
+					'title'   => __( 'Templates', 'axle-page-template-usage' ),
+					'content' => '<p>' . esc_html__( 'Each row is a template the theme offers, with the number of pages that use it. Use Move to put every page on one template onto another. At most 500 pages move per click, and the notice offers Undo.', 'axle-page-template-usage' ) . '</p>',
+				),
+				array(
+					'id'      => 'missing',
+					'title'   => __( 'Missing templates', 'axle-page-template-usage' ),
+					'content' => '<p>' . esc_html__( 'A theme update or a deploy can remove a template that pages still use. WordPress then shows the default layout and says nothing. The Missing tab lists those templates, suggests the closest one the theme still has, and previews the move before it runs. Nothing changes by itself.', 'axle-page-template-usage' ) . '</p><p>' . esc_html__( 'The plugin looks after every theme update and theme switch, and once a day. You can also turn on an email.', 'axle-page-template-usage' ) . '</p>',
+				),
+				array(
+					'id'      => 'preview',
+					'title'   => __( 'Preview', 'axle-page-template-usage' ),
+					'content' => '<p>' . esc_html__( 'Use "Preview with..." in a page row to open the page with another template. Only you see it, nothing is saved, and the bar at the bottom has "Use this template" and "Close". You can only preview pages you can edit.', 'axle-page-template-usage' ) . '</p>',
+				),
+				array(
+					'id'      => 'theme',
+					'title'   => __( 'Check a theme', 'axle-page-template-usage' ),
+					'content' => '<p>' . esc_html__( 'Pick a theme that is installed but not active. The check lists the pages that would lose their template. Save a plan to choose a replacement for each, and the pages move when you activate the theme.', 'axle-page-template-usage' ) . '</p>',
+				),
+				array(
+					'id'      => 'history',
+					'title'   => __( 'History', 'axle-page-template-usage' ),
+					'content' => '<p>' . esc_html__( 'Every template change is listed with who made it, when, and where it came from. Undo a single change, or a whole batch. A change cannot be undone once the page has another template.', 'axle-page-template-usage' ) . '</p>',
+				),
+			)
+		);
 	}
 
 	/**
@@ -223,6 +299,10 @@ final class ReportPage implements Service {
 				$this->theme_tab->render();
 			} elseif ( 'history' === $tab && $this->history_tab ) {
 				$this->history_tab->render();
+			} elseif ( 'missing' === $tab && $this->missing_tab ) {
+				$this->missing_tab->render();
+			} elseif ( 'preview' === $tab && $this->preview_tab ) {
+				$this->preview_tab->render();
 			} else {
 				$this->render_templates();
 			}
@@ -236,7 +316,7 @@ final class ReportPage implements Service {
 	/**
 	 * Tab shown, from the URL.
 	 *
-	 * @return string templates, theme or history.
+	 * @return string templates, missing, preview, theme or history.
 	 */
 	private function current_tab(): string {
 		// Read-only choice of what to show.
@@ -247,7 +327,7 @@ final class ReportPage implements Service {
 			return 'templates';
 		}
 
-		return in_array( $tab, array( 'theme', 'history' ), true ) ? $tab : 'templates';
+		return in_array( $tab, array( 'theme', 'history', 'missing', 'preview' ), true ) ? $tab : 'templates';
 	}
 
 	/**
@@ -258,16 +338,25 @@ final class ReportPage implements Service {
 	private function render_tabs( string $current ): void {
 		$tabs = array(
 			'templates' => __( 'Templates', 'axle-page-template-usage' ),
+			'missing'   => __( 'Missing', 'axle-page-template-usage' ),
 			'theme'     => __( 'Check a theme', 'axle-page-template-usage' ),
 			'history'   => __( 'History', 'axle-page-template-usage' ),
 		);
 		if ( ! self::can_check_themes() ) {
 			unset( $tabs['theme'] );
 		}
+		if ( 'preview' === $current ) {
+			$tabs['preview'] = __( 'Preview', 'axle-page-template-usage' );
+		}
+		$missing = $this->missing_tab ? $this->missing_tab->count() : 0;
 		?>
 		<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Axle Page Template Usage views', 'axle-page-template-usage' ); ?>">
 			<?php foreach ( $tabs as $key => $label ) : ?>
-				<a class="nav-tab<?php echo $key === $current ? ' nav-tab-active' : ''; ?>" href="<?php echo esc_url( 'templates' === $key ? self::url() : self::url( array( 'tab' => $key ) ) ); ?>"<?php echo $key === $current ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?></a>
+				<a class="nav-tab<?php echo $key === $current ? ' nav-tab-active' : ''; ?>" href="<?php echo esc_url( 'templates' === $key ? self::url() : self::url( array( 'tab' => $key ) ) ); ?>"<?php echo $key === $current ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?>
+				<?php
+				if ( 'missing' === $key && $missing ) :
+					?>
+					<span class="axle-badge axle-badge--error"><?php echo esc_html( number_format_i18n( $missing ) ); ?></span><?php endif; ?></a>
 			<?php endforeach; ?>
 		</nav>
 		<?php
@@ -420,8 +509,14 @@ final class ReportPage implements Service {
 		$targets = array( Templates::DEFAULT_TEMPLATE => __( 'Default', 'axle-page-template-usage' ) ) + $templates;
 		unset( $targets[ $from ] );
 		$field_id = 'aptu-to-' . md5( $post_type . $from );
+		$confirm  = sprintf(
+			/* translators: 1: number of items at most, 2: template name or file. {to} is replaced with the template chosen in the list, keep it as it is. */
+			__( 'This changes the template of up to %1$s items on "%2$s" to "{to}". You can undo it right after, or later from the History tab, as long as the items keep the new template.', 'axle-page-template-usage' ),
+			number_format_i18n( self::move_limit( $post_type ) ),
+			$this->templates->get_name( $post_type, $from ) ?? $from
+		);
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="aptu-reassign">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="aptu-reassign" data-aptu-confirm="<?php echo esc_attr( $confirm ); ?>" data-aptu-confirm-label="<?php esc_attr_e( 'Move the items', 'axle-page-template-usage' ); ?>" data-aptu-cancel-label="<?php esc_attr_e( 'Cancel', 'axle-page-template-usage' ); ?>">
 			<?php wp_nonce_field( self::ACTION ); ?>
 			<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
 			<input type="hidden" name="post_type" value="<?php echo esc_attr( $post_type ); ?>">
@@ -443,6 +538,11 @@ final class ReportPage implements Service {
 	 */
 	private function render_notice(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Display-only values set by our own redirect.
+		if ( isset( $_GET['aptu_scanned'] ) || isset( $_GET['aptu_alert'] ) ) {
+			$this->render_missing_notice();
+			return;
+		}
+
 		if ( isset( $_GET['aptu_undone'] ) || isset( $_GET['aptu_blocked'] ) || isset( $_GET['aptu_saved'] ) ) {
 			$this->render_result_notice();
 			return;
@@ -455,7 +555,7 @@ final class ReportPage implements Service {
 				'mapping'          => __( 'The plan was not saved: the theme does not have one of the templates you chose.', 'axle-page-template-usage' ),
 			);
 			$code   = sanitize_key( wp_unslash( $_GET['aptu_error'] ) );
-			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $errors[ $code ] ?? __( 'The templates could not be changed.', 'axle-page-template-usage' ) ) );
+			printf( '<div class="notice notice-error aptu-live"><p>%s</p></div>', esc_html( $errors[ $code ] ?? __( 'The templates could not be changed.', 'axle-page-template-usage' ) ) );
 			return;
 		}
 
@@ -489,7 +589,7 @@ final class ReportPage implements Service {
 
 		$batch = isset( $_GET['aptu_batch'] ) ? preg_replace( '/[^a-f0-9]/', '', strtolower( sanitize_text_field( wp_unslash( $_GET['aptu_batch'] ) ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( implode( ' ', $lines ) ) . '</p>';
+		echo '<div class="notice notice-success is-dismissible aptu-live"><p>' . esc_html( implode( ' ', $lines ) ) . '</p>';
 		if ( $moved && $batch && $this->history_tab ) {
 			echo '<p class="aptu-switch-notice__actions">';
 			HistoryTab::render_undo_batch_form( (string) $batch, $moved );
@@ -497,6 +597,37 @@ final class ReportPage implements Service {
 			echo '</p>';
 		}
 		echo '</div>';
+	}
+
+	/**
+	 * Prints the result of a check from the Missing tab, or of saving the email settings.
+	 */
+	private function render_missing_notice(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Display-only values set by our own redirect.
+		if ( isset( $_GET['aptu_alert'] ) ) {
+			$messages = array(
+				'on'        => __( 'Saved. You get an email when a template goes missing.', 'axle-page-template-usage' ),
+				'off'       => __( 'Saved. No email is sent.', 'axle-page-template-usage' ),
+				'bad_email' => __( 'Nothing was saved: that email address is not valid. Check it and save again.', 'axle-page-template-usage' ),
+			);
+			$code     = sanitize_key( wp_unslash( $_GET['aptu_alert'] ) );
+			printf(
+				'<div class="notice notice-%1$s is-dismissible aptu-live"><p>%2$s</p></div>',
+				'bad_email' === $code ? 'error' : 'success',
+				esc_html( $messages[ $code ] ?? __( 'Saved.', 'axle-page-template-usage' ) )
+			);
+			return;
+		}
+
+		$count = isset( $_GET['aptu_scanned'] ) ? absint( $_GET['aptu_scanned'] ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$message = $count
+			/* translators: %s: number of items. */
+			? sprintf( _n( 'Checked. %s item uses a template the theme no longer has.', 'Checked. %s items use a template the theme no longer has.', $count, 'axle-page-template-usage' ), number_format_i18n( $count ) )
+			: __( 'Checked. Every page uses a template the theme has.', 'axle-page-template-usage' );
+
+		printf( '<div class="notice notice-%1$s is-dismissible aptu-live"><p>%2$s</p></div>', $count ? 'warning' : 'success', esc_html( $message ) );
 	}
 
 	/**
@@ -508,7 +639,7 @@ final class ReportPage implements Service {
 			$message = absint( $_GET['aptu_saved'] )
 				? __( 'The plan is saved. The items move when you activate the theme, and you get an Undo.', 'axle-page-template-usage' )
 				: __( 'No plan is saved for this theme.', 'axle-page-template-usage' );
-			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $message ) );
+			printf( '<div class="notice notice-success is-dismissible aptu-live"><p>%s</p></div>', esc_html( $message ) );
 			return;
 		}
 
@@ -522,7 +653,7 @@ final class ReportPage implements Service {
 				'gone'        => __( 'Nothing was undone: the history no longer has that entry.', 'axle-page-template-usage' ),
 			);
 			$code    = sanitize_key( wp_unslash( $_GET['aptu_blocked'] ) );
-			printf( '<div class="notice notice-warning is-dismissible"><p>%s</p></div>', esc_html( $reasons[ $code ] ?? __( 'Nothing was undone.', 'axle-page-template-usage' ) ) );
+			printf( '<div class="notice notice-warning is-dismissible aptu-live"><p>%s</p></div>', esc_html( $reasons[ $code ] ?? __( 'Nothing was undone.', 'axle-page-template-usage' ) ) );
 			return;
 		}
 
@@ -542,7 +673,7 @@ final class ReportPage implements Service {
 			$lines[] = sprintf( _n( '%s more is left. Click Undo this batch again to continue.', '%s more are left. Click Undo this batch again to continue.', $left, 'axle-page-template-usage' ), number_format_i18n( $left ) );
 		}
 
-		printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( implode( ' ', $lines ) ) );
+		printf( '<div class="notice notice-success is-dismissible aptu-live"><p>%s</p></div>', esc_html( implode( ' ', $lines ) ) );
 	}
 
 	/**
@@ -558,6 +689,11 @@ final class ReportPage implements Service {
 
 		if ( ! self::can_access( $post_type ) ) {
 			wp_die( esc_html__( 'Sorry, you are not allowed to change templates for these items.', 'axle-page-template-usage' ), 403 );
+		}
+
+		// Set by the Missing tab, to come back to it.
+		if ( isset( $_POST['return'] ) && 'missing' === sanitize_key( wp_unslash( $_POST['return'] ) ) ) {
+			$back = MissingTab::url();
 		}
 
 		$result = $this->templates->reassign( $post_type, $from, $to, self::move_limit( $post_type ), true, 'bulk_move' );

@@ -152,4 +152,61 @@ final class AccessTest extends TestCase {
 
 		$this->assertStringContainsString( "( 0 = 1 OR post_type IN ( '' ) )", $this->db->queries[0] );
 	}
+
+	public function test_the_missing_ability_needs_access_to_a_named_post_type(): void {
+		$this->caps = array( 'edit_pages' );
+
+		$this->assertTrue( $this->abilities->can_read_missing( array() ), 'No post type: the answer is cut down to the types the user can edit.' );
+		$this->assertTrue( $this->abilities->can_read_missing( array( 'post_type' => 'page' ) ) );
+		$this->assertFalse( $this->abilities->can_read_missing( array( 'post_type' => 'secret_doc' ) ) );
+		$this->assertFalse( $this->abilities->can_read_missing( array( 'post_type' => 'Secret_Doc' ) ), 'Another spelling.' );
+
+		$this->caps = array( 'edit_posts' );
+		$this->assertFalse( $this->abilities->can_read_missing( array() ), 'No report capability.' );
+	}
+
+	public function test_the_missing_ability_leaves_out_post_types_the_user_cannot_edit(): void {
+		$this->caps = array( 'edit_pages' );
+		Functions\when( 'wp_list_pluck' )->alias(
+			static function ( $list, $field ) {
+				return array_column( $list, $field );
+			}
+		);
+		Functions\when( 'wp_cache_get' )->justReturn( array( 'templates/gone.php' => 4 ) );
+		$theme = \Mockery::mock();
+		$theme->shouldReceive( 'get_page_templates' )->andReturn( array( 'page-wide' => 'Wide' ) );
+		Functions\when( 'wp_get_theme' )->justReturn( $theme );
+		Functions\when( 'post_type_exists' )->justReturn( true );
+
+		$answer = $this->abilities->get_missing( array( 'post_type' => 'secret_doc' ) );
+
+		$this->assertSame( 0, $answer['total'] );
+		$this->assertSame( array(), $answer['templates'] );
+
+		$answer = $this->abilities->get_missing( array() );
+		$this->assertSame( array( 'page' ), array_values( array_unique( array_column( $answer['templates'], 'post_type' ) ) ) );
+	}
+
+	public function test_the_preview_ability_needs_the_right_to_edit_that_page(): void {
+		$this->caps = array( 'edit_pages' );
+		Functions\when( 'get_post' )->alias(
+			static function ( $id ) {
+				$post            = new \WP_Post();
+				$post->ID        = (int) $id;
+				$post->post_type = 1 === (int) $id ? 'page' : 'secret_doc';
+				return $post;
+			}
+		);
+
+		// edit_post is a meta capability: only page 1 is editable.
+		Functions\when( 'current_user_can' )->alias(
+			function ( $cap, $id = 0 ) {
+				return 'edit_post' === $cap ? 1 === (int) $id : in_array( $cap, $this->caps, true );
+			}
+		);
+
+		$this->assertTrue( $this->abilities->can_preview( array( 'post_id' => 1 ) ) );
+		$this->assertFalse( $this->abilities->can_preview( array( 'post_id' => 2 ) ), 'A post type the user has no access to.' );
+		$this->assertFalse( $this->abilities->can_preview( array() ) );
+	}
 }

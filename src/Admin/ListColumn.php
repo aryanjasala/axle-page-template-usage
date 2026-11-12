@@ -7,6 +7,7 @@
 
 namespace AryanX\Axle\PageTemplateUsage\Admin;
 
+use AryanX\Axle\PageTemplateUsage\Preview;
 use AryanX\Axle\PageTemplateUsage\Service;
 use AryanX\Axle\PageTemplateUsage\Templates;
 use const AryanX\Axle\PageTemplateUsage\PLUGIN_FILE;
@@ -93,6 +94,16 @@ final class ListColumn implements Service {
 			esc_html__( 'Template history', 'axle-page-template-usage' )
 		);
 
+		if ( Preview::can_preview( $post->ID ) ) {
+			$actions['aptu_preview'] = sprintf(
+				'<a href="%1$s" aria-label="%2$s">%3$s</a>',
+				esc_url( PreviewTab::url( $post->ID ) ),
+				/* translators: %s: post title. */
+				esc_attr( sprintf( __( 'Preview "%s" with another template', 'axle-page-template-usage' ), get_the_title( $post ) ) ),
+				esc_html__( 'Preview with...', 'axle-page-template-usage' )
+			);
+		}
+
 		return $actions;
 	}
 
@@ -135,8 +146,8 @@ final class ListColumn implements Service {
 			esc_html( sprintf( $message, number_format_i18n( $missing ) ) ),
 			esc_url( $this->filter_url( $post_type->name, Templates::MISSING ) ),
 			esc_html__( 'Show them', 'axle-page-template-usage' ),
-			esc_url( admin_url( 'themes.php?page=' . ReportPage::SLUG ) ),
-			esc_html__( 'Fix in Axle Page Template Usage', 'axle-page-template-usage' )
+			esc_url( MissingTab::url() ),
+			esc_html__( 'Review and move them', 'axle-page-template-usage' )
 		);
 	}
 

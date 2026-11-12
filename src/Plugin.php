@@ -9,6 +9,8 @@ namespace AryanX\Axle\PageTemplateUsage;
 
 use AryanX\Axle\PageTemplateUsage\Admin\HistoryTab;
 use AryanX\Axle\PageTemplateUsage\Admin\ListColumn;
+use AryanX\Axle\PageTemplateUsage\Admin\MissingTab;
+use AryanX\Axle\PageTemplateUsage\Admin\PreviewTab;
 use AryanX\Axle\PageTemplateUsage\Admin\ReportPage;
 use AryanX\Axle\PageTemplateUsage\Admin\ThemeCheckTab;
 use AryanX\Axle\PageTemplateUsage\Cli\Command;
@@ -47,6 +49,20 @@ final class Plugin {
 	 * @var ThemeCheck
 	 */
 	private ThemeCheck $theme;
+
+	/**
+	 * Missing template finder.
+	 *
+	 * @var Missing
+	 */
+	private Missing $missing;
+
+	/**
+	 * Front end preview.
+	 *
+	 * @var Preview
+	 */
+	private Preview $preview;
 
 	/**
 	 * Services that hook into WordPress.
@@ -93,6 +109,24 @@ final class Plugin {
 	}
 
 	/**
+	 * Missing template finder.
+	 *
+	 * @return Missing
+	 */
+	public function missing(): Missing {
+		return $this->missing;
+	}
+
+	/**
+	 * Front end preview.
+	 *
+	 * @return Preview
+	 */
+	public function preview(): Preview {
+		return $this->preview;
+	}
+
+	/**
 	 * Builds the services.
 	 */
 	private function __construct() {
@@ -101,16 +135,24 @@ final class Plugin {
 		$this->theme     = new ThemeCheck( $this->templates, $this->history );
 		$theme_tab       = new ThemeCheckTab( $this->templates, $this->theme );
 		$history_tab     = new HistoryTab( $this->templates, $this->history );
+		$this->missing   = new Missing( $this->templates );
+		$this->preview   = new Preview( $this->templates );
+		$missing_tab     = new MissingTab( $this->templates, $this->missing, $this->preview );
+		$preview_tab     = new PreviewTab( $this->templates, $this->preview );
 		$this->services  = array(
 			$this->history,
 			$this->templates,
 			$this->theme,
 			new Privacy( $this->history ),
 			new ListColumn( $this->templates ),
-			new ReportPage( $this->templates, $theme_tab, $history_tab ),
+			$this->missing,
+			$this->preview,
+			new Health( $this->missing ),
+			new ReportPage( $this->templates, $theme_tab, $history_tab, $missing_tab, $preview_tab ),
 			$theme_tab,
 			$history_tab,
-			new Abilities( $this->templates, $this->theme, $this->history ),
+			$missing_tab,
+			new Abilities( $this->templates, $this->theme, $this->history, $this->missing, $this->preview ),
 		);
 	}
 
@@ -132,7 +174,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-page-template-usage', new Command( $this->templates, $this->theme, $this->history ) );
+			\WP_CLI::add_command( 'axle-page-template-usage', new Command( $this->templates, $this->theme, $this->history, $this->missing, $this->preview ) );
 		}
 	}
 }

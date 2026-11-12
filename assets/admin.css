@@ -4,11 +4,11 @@
 }
 
 .column-axle_page_template_usage .aptu-default {
-	color: #646970;
+	color: #50575e;
 }
 
 .column-axle_page_template_usage .aptu-missing {
-	color: #b32d2e;
+	color: #8a2424;
 	font-weight: 600;
 }
 
@@ -32,7 +32,7 @@
 	padding: 0;
 	margin: 2px 0 0 20px;
 	background: none;
-	color: #646970;
+	color: #50575e;
 	word-break: normal;
 	overflow-wrap: anywhere;
 }
@@ -147,7 +147,7 @@
 }
 
 .aptu-history-table .aptu-default {
-	color: #646970;
+	color: #50575e;
 }
 
 .aptu-undo-reason {
@@ -166,4 +166,54 @@
 
 .aptu-batch .aptu-inline-form {
 	margin-top: 12px;
+}
+
+/* Missing tab, preview picker and the in-place confirm. Cards, badges, diff and scroll come from axle-ui.css. */
+.aptu-missing-table .num,
+.aptu-preview-table .num {
+	width: 90px;
+	text-align: right;
+}
+
+.aptu-missing-table td,
+.aptu-preview-table td {
+	vertical-align: middle;
+}
+
+.aptu-missing-table .aptu-slug {
+	display: inline-block;
+	margin-top: 0;
+}
+
+.aptu-move-sample {
+	margin: 8px 0 16px;
+	padding-left: 20px;
+	list-style: disc;
+}
+
+.aptu-move-sample li {
+	margin-bottom: 6px;
+}
+
+.aptu-preview-link {
+	margin-left: 8px;
+}
+
+.aptu-alert-settings .description {
+	max-width: 60em;
+}
+
+.aptu-checked {
+	line-height: 30px;
+}
+
+.aptu-reassign + .aptu-confirm {
+	flex-basis: 100%;
+}
+
+@media screen and (max-width: 782px) {
+	.aptu-missing-table .num,
+	.aptu-preview-table .num {
+		width: auto;
+	}
 }

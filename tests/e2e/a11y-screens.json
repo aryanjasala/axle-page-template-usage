@@ -479,6 +479,279 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Missing tab, nothing is missing",
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=missing",
+      "setup": [
+        {
+          "wp": [
+            "axle-page-template-usage",
+            "missing"
+          ],
+          "mayFail": true
+        }
+      ],
+      "steps": [
+        {
+          "waitFor": ".aptu-missing-empty"
+        }
+      ]
+    },
+    {
+      "name": "Missing tab with a missing template and a suggestion",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\": \"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        },
+        {
+          "wp": [
+            "axle-page-template-usage",
+            "missing"
+          ],
+          "mayFail": true
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=missing",
+      "steps": [
+        {
+          "waitFor": ".aptu-missing-table"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{sale}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "Missing tab, preview of a move with its confirm step",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\": \"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        },
+        {
+          "wp": [
+            "axle-page-template-usage",
+            "missing"
+          ],
+          "mayFail": true
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=missing&mv_type=page&mv_from=templates%2Flanding.php&mv_to=page-no-title",
+      "steps": [
+        {
+          "waitFor": ".aptu-move-preview .axle-confirm"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{sale}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "Missing tab, checked and nothing found notice",
+      "setup": [],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=missing&aptu_scanned=0",
+      "steps": [
+        {
+          "waitFor": ".aptu-live"
+        }
+      ]
+    },
+    {
+      "name": "Missing tab, email settings saved",
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=missing&aptu_alert=on",
+      "steps": [
+        {
+          "waitFor": ".aptu-alert-settings"
+        }
+      ]
+    },
+    {
+      "name": "Templates tab, in-place confirm before a move",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\": \"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage",
+      "steps": [
+        {
+          "click": "tr[data-template=\"templates/landing.php\"] .aptu-reassign button"
+        },
+        {
+          "waitFor": ".aptu-confirm"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{sale}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "History tab, in-place confirm before undoing a batch",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\": \"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        },
+        {
+          "wp": [
+            "axle-page-template-usage",
+            "reassign",
+            "templates/landing.php",
+            "default"
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=history",
+      "steps": [
+        {
+          "waitFor": ".aptu-history-table"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{sale}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "Preview picker for one page",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--porcelain"
+          ],
+          "save": "sale"
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=preview&post={sale}",
+      "steps": [
+        {
+          "waitFor": ".aptu-preview-table"
+        }
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{sale}",
+          "--force"
+        ]
+      ]
+    },
+    {
+      "name": "Preview picker without a page",
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=preview",
+      "steps": [
+        {
+          "waitFor": ".aptu-preview-empty"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard notice about missing templates",
+      "setup": [
+        {
+          "wp": [
+            "post",
+            "create",
+            "--post_type=page",
+            "--post_status=publish",
+            "--post_title=Spring sale",
+            "--meta_input={\"_wp_page_template\": \"templates/landing.php\"}",
+            "--porcelain"
+          ],
+          "save": "sale"
+        },
+        {
+          "wp": [
+            "axle-page-template-usage",
+            "missing"
+          ],
+          "mayFail": true
+        }
+      ],
+      "url": "/wp-admin/index.php",
+      "steps": [
+        {
+          "waitFor": ".aptu-missing-alert"
+        }
+      ],
+      "include": [
+        ".aptu-missing-alert"
+      ],
+      "cleanup": [
+        [
+          "post",
+          "delete",
+          "{sale}",
+          "--force"
+        ],
+        [
+          "user",
+          "meta",
+          "delete",
+          "1",
+          "axle_page_template_usage_missing_dismissed"
+        ]
+      ]
     }
   ],
   "skip": {}

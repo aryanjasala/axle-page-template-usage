@@ -400,6 +400,63 @@ final class Templates implements Service {
 	}
 
 	/**
+	 * Sets the template of one post, recorded in the history.
+	 *
+	 * Does not check capabilities: the caller checks the post and its post type.
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $template Template the theme offers, or DEFAULT_TEMPLATE.
+	 * @param string $source   Where the change comes from, for the history.
+	 * @return array{batch: string, previous: string}|\WP_Error
+	 */
+	public function set_template( int $post_id, string $template, string $source = 'other' ) {
+		$post = get_post( $post_id );
+		if ( ! $post instanceof \WP_Post ) {
+			return new \WP_Error( 'axle_page_template_usage_no_post', __( 'That page does not exist.', 'axle-page-template-usage' ) );
+		}
+
+		if ( ! $this->is_default( $template ) && ! isset( $this->get_templates( $post->post_type )[ $template ] ) ) {
+			return new \WP_Error( 'axle_page_template_usage_unknown_template', __( 'The theme does not have that template.', 'axle-page-template-usage' ) );
+		}
+
+		$value    = $this->is_default( $template ) ? self::DEFAULT_TEMPLATE : $template;
+		$previous = (string) get_post_meta( $post_id, self::META_KEY, true );
+		$batch    = '';
+		$context  = null;
+		if ( $this->history ) {
+			$batch   = $this->history->new_batch();
+			$context = $this->history->enter( $source, $batch );
+		}
+
+		try {
+			update_post_meta( $post_id, self::META_KEY, $value );
+		} finally {
+			if ( $this->history ) {
+				$this->history->leave( $context );
+			}
+		}
+
+		$this->flush_counts( $post->post_type );
+
+		return array(
+			'batch'    => $batch,
+			'previous' => $previous,
+		);
+	}
+
+	/**
+	 * IDs of posts on a template, lowest ID first.
+	 *
+	 * @param string $post_type Post type.
+	 * @param string $template  Template slug, DEFAULT_TEMPLATE or MISSING.
+	 * @param int    $limit     Most IDs to return.
+	 * @return int[]
+	 */
+	public function ids_on_template( string $post_type, string $template, int $limit ): array {
+		return $this->matching_ids( $post_type, $template, $limit, array() );
+	}
+
+	/**
 	 * IDs of posts on a template.
 	 *
 	 * @param string $post_type Post type.

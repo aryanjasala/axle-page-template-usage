@@ -25,7 +25,7 @@ final class History implements Service {
 	public const OPTION_DB  = 'axle_page_template_usage_db_version';
 	public const CRON       = 'axle_page_template_usage_purge';
 
-	public const SOURCES = array( 'editor', 'quick_edit', 'bulk_move', 'theme_switch', 'cli', 'ability', 'undo', 'other' );
+	public const SOURCES = array( 'editor', 'quick_edit', 'bulk_move', 'theme_switch', 'cli', 'ability', 'preview', 'undo', 'other' );
 
 	private const DEFAULT_CAP       = 10000;
 	private const DEFAULT_RETENTION = 365;

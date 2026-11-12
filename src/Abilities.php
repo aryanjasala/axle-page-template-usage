@@ -43,16 +43,34 @@ final class Abilities implements Service {
 	private History $history;
 
 	/**
+	 * Finder of missing templates.
+	 *
+	 * @var Missing
+	 */
+	private Missing $missing;
+
+	/**
+	 * Front end preview.
+	 *
+	 * @var Preview
+	 */
+	private Preview $preview;
+
+	/**
 	 * Sets up the abilities.
 	 *
-	 * @param Templates  $templates   Template lookups and moves.
-	 * @param ThemeCheck $theme_check Theme check.
-	 * @param History    $history     Template history.
+	 * @param Templates    $templates   Template lookups and moves.
+	 * @param ThemeCheck   $theme_check Theme check.
+	 * @param History      $history     Template history.
+	 * @param Missing|null $missing     Finder of missing templates.
+	 * @param Preview|null $preview     Front end preview.
 	 */
-	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history ) {
+	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history, ?Missing $missing = null, ?Preview $preview = null ) {
 		$this->templates   = $templates;
 		$this->theme_check = $theme_check;
 		$this->history     = $history;
+		$this->missing     = $missing ?? new Missing( $templates );
+		$this->preview     = $preview ?? new Preview( $templates );
 	}
 
 	/**
@@ -133,6 +151,111 @@ final class Abilities implements Service {
 				),
 				'execute_callback'    => array( $this, 'get_report' ),
 				'permission_callback' => array( $this, 'can_use_post_type' ),
+				'meta'                => array(
+					'annotations'  => array(
+						'readonly'   => true,
+						'idempotent' => true,
+					),
+					'show_in_rest' => true,
+					// Clients such as the MCP adapter only list abilities marked public:
+					// `public` from WordPress 7.1, `mcp.public` for the adapter on 6.9 and 7.0.
+					'public'       => true,
+					'mcp'          => array( 'public' => true ),
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::CATEGORY . '/get-missing',
+			array(
+				'label'               => __( 'Get missing templates', 'axle-page-template-usage' ),
+				'description'         => __( 'Templates that items still point at but the active theme no longer has, with how many items, since when, and the closest template the theme still has. Only covers post types the user can edit. Changes nothing: use reassign to move the items.', 'axle-page-template-usage' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'post_type' => array(
+							'type'        => 'string',
+							'description' => __( 'Only this post type. Default: every post type the user can edit.', 'axle-page-template-usage' ),
+						),
+					),
+					'additionalProperties' => false,
+					'default'              => array(),
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'total'     => array( 'type' => 'integer' ),
+						'templates' => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'post_type'  => array( 'type' => 'string' ),
+									'slug'       => array( 'type' => 'string' ),
+									'count'      => array( 'type' => 'integer' ),
+									'since'      => array(
+										'type'        => 'integer',
+										'description' => 'Unix time the plugin first saw it missing, 0 when not known.',
+									),
+									'suggestion' => array(
+										'type'       => 'object',
+										'properties' => array(
+											'template' => array( 'type' => 'string' ),
+											'reason'   => array(
+												'type' => 'string',
+												'enum' => array( 'same_file', 'same_name', 'default' ),
+											),
+										),
+									),
+								),
+							),
+						),
+					),
+				),
+				'execute_callback'    => array( $this, 'get_missing' ),
+				'permission_callback' => array( $this, 'can_read_missing' ),
+				'meta'                => array(
+					'annotations'  => array(
+						'readonly'   => true,
+						'idempotent' => true,
+					),
+					'show_in_rest' => true,
+					// Clients such as the MCP adapter only list abilities marked public:
+					// `public` from WordPress 7.1, `mcp.public` for the adapter on 6.9 and 7.0.
+					'public'       => true,
+					'mcp'          => array( 'public' => true ),
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::CATEGORY . '/get-preview-url',
+			array(
+				'label'               => __( 'Get a preview link', 'axle-page-template-usage' ),
+				'description'         => __( 'A front end link that shows one page with another template, for the current user only. Nothing is saved. The user must be able to edit the page.', 'axle-page-template-usage' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'post_id'  => array(
+							'type'        => 'integer',
+							'description' => __( 'The page to preview.', 'axle-page-template-usage' ),
+						),
+						'template' => array(
+							'type'        => 'string',
+							'description' => __( 'Template the theme offers, or default.', 'axle-page-template-usage' ),
+						),
+					),
+					'required'             => array( 'post_id', 'template' ),
+					'additionalProperties' => false,
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array( 'url' => array( 'type' => 'string' ) ),
+				),
+				'execute_callback'    => array( $this, 'get_preview_url' ),
+				'permission_callback' => array( $this, 'can_preview' ),
 				'meta'                => array(
 					'annotations'  => array(
 						'readonly'   => true,
@@ -430,6 +553,77 @@ final class Abilities implements Service {
 			'missing'   => (int) array_sum( $this->templates->get_missing_counts( $post_type ) ),
 			'templates' => $rows,
 		);
+	}
+
+	/**
+	 * Ability: the templates items point at that the theme lost.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array
+	 */
+	public function get_missing( $input = null ): array {
+		$post_type = self::theme_post_type( $input );
+		$allowed   = '' !== $post_type ? array( $post_type ) : ReportPage::accessible_types();
+		$rows      = array();
+
+		foreach ( $this->missing->get_missing( array_values( array_intersect( $allowed, ReportPage::accessible_types() ) ) ) as $row ) {
+			$rows[] = array(
+				'post_type'  => $row['post_type'],
+				'slug'       => $row['slug'],
+				'count'      => $row['count'],
+				'since'      => $row['since'],
+				'suggestion' => array(
+					'template' => $row['suggestion']['template'],
+					'reason'   => $row['suggestion']['reason'],
+				),
+			);
+		}
+
+		return array(
+			'total'     => (int) array_sum( wp_list_pluck( $rows, 'count' ) ),
+			'templates' => $rows,
+		);
+	}
+
+	/**
+	 * Ability: a link that previews a page with a template.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array|\WP_Error
+	 */
+	public function get_preview_url( $input = null ) {
+		$input = (array) $input;
+		$url   = $this->preview->url( absint( $input['post_id'] ?? 0 ), (string) ( $input['template'] ?? '' ) );
+
+		if ( '' === $url ) {
+			return new \WP_Error( 'axle_page_template_usage_no_preview', __( 'That page cannot be previewed with that template: it does not exist, you cannot edit it, or the theme does not have the template.', 'axle-page-template-usage' ), array( 'status' => 400 ) );
+		}
+
+		return array( 'url' => $url );
+	}
+
+	/**
+	 * Permission for get-missing: the report capability, plus edit_posts on the post type when one is given.
+	 *
+	 * Without a post type, the answer only covers the post types the user can edit.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return bool
+	 */
+	public function can_read_missing( $input = null ): bool {
+		$post_type = self::theme_post_type( $input );
+
+		return current_user_can( ReportPage::capability() ) && ( '' === $post_type || ReportPage::can_access( $post_type ) );
+	}
+
+	/**
+	 * Permission for get-preview-url: access to the page's post type, and the right to edit that page.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return bool
+	 */
+	public function can_preview( $input = null ): bool {
+		return Preview::can_preview( absint( ( (array) $input )['post_id'] ?? 0 ) );
 	}
 
 	/**

@@ -8,6 +8,8 @@
 namespace AryanX\Axle\PageTemplateUsage\Cli;
 
 use AryanX\Axle\PageTemplateUsage\History;
+use AryanX\Axle\PageTemplateUsage\Missing;
+use AryanX\Axle\PageTemplateUsage\Preview;
 use AryanX\Axle\PageTemplateUsage\Templates;
 use AryanX\Axle\PageTemplateUsage\ThemeCheck;
 
@@ -40,16 +42,34 @@ final class Command {
 	private History $history;
 
 	/**
+	 * Finder of missing templates.
+	 *
+	 * @var Missing
+	 */
+	private Missing $missing;
+
+	/**
+	 * Front end preview.
+	 *
+	 * @var Preview
+	 */
+	private Preview $preview;
+
+	/**
 	 * Sets up the command.
 	 *
-	 * @param Templates  $templates   Template data.
-	 * @param ThemeCheck $theme_check Theme check.
-	 * @param History    $history     Template history.
+	 * @param Templates    $templates   Template data.
+	 * @param ThemeCheck   $theme_check Theme check.
+	 * @param History      $history     Template history.
+	 * @param Missing|null $missing     Finder of missing templates.
+	 * @param Preview|null $preview     Front end preview.
 	 */
-	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history ) {
+	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history, ?Missing $missing = null, ?Preview $preview = null ) {
 		$this->templates   = $templates;
 		$this->theme_check = $theme_check;
 		$this->history     = $history;
+		$this->missing     = $missing ?? new Missing( $templates );
+		$this->preview     = $preview ?? new Preview( $templates );
 	}
 
 	/**
@@ -130,6 +150,119 @@ final class Command {
 		}
 
 		\WP_CLI::success( sprintf( 'Moved %d item(s) to %s.%s', $result['moved'], $to, $result['batch'] ? ' Batch: ' . $result['batch'] : '' ) );
+	}
+
+	/**
+	 * Lists templates that items use but the active theme no longer has.
+	 *
+	 * Looks at the pages now and changes nothing. Exits with code 1 when any
+	 * template is missing, so a deploy pipeline can fail on it. For each one it
+	 * shows the closest template the theme still has.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--post_type=<post_type>]
+	 * : Only this post type. Default: every post type with templates.
+	 *
+	 * [--format=<format>]
+	 * : table, csv, json or yaml.
+	 * ---
+	 * default: table
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-page-template-usage missing
+	 *     wp axle-page-template-usage missing --format=json || echo "templates went missing"
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function missing( array $args, array $assoc_args ): void {
+		$this->missing->scan( true, 'cli' );
+		$rows = array();
+
+		foreach ( $this->missing->get_missing( isset( $assoc_args['post_type'] ) ? array( (string) $assoc_args['post_type'] ) : null ) as $row ) {
+			$rows[] = array(
+				'post_type'  => $row['post_type'],
+				'slug'       => $row['slug'],
+				'count'      => $row['count'],
+				'since'      => $row['since'] ? gmdate( 'Y-m-d H:i:s', $row['since'] ) : '',
+				'suggestion' => $row['suggestion']['template'],
+				'reason'     => $row['suggestion']['reason'],
+			);
+		}
+
+		\WP_CLI\Utils\format_items( $assoc_args['format'] ?? 'table', $rows, array( 'post_type', 'slug', 'count', 'since', 'suggestion', 'reason' ) );
+
+		if ( $rows ) {
+			\WP_CLI::halt( 1 );
+		}
+	}
+
+	/**
+	 * Turns the email about missing templates on or off.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <state>
+	 * : on or off.
+	 *
+	 * [--to=<email>]
+	 * : Who gets it. Default: the site admin email.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-page-template-usage missing-alert on --to=ops@example.com
+	 *     wp axle-page-template-usage missing-alert off
+	 *
+	 * @subcommand missing-alert
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function missing_alert( array $args, array $assoc_args ): void {
+		if ( ! in_array( $args[0], array( 'on', 'off' ), true ) ) {
+			\WP_CLI::error( 'Use "on" or "off".' );
+		}
+
+		$result = $this->missing->save_alert( 'on' === $args[0], isset( $assoc_args['to'] ) ? (string) $assoc_args['to'] : $this->missing->get_alert()['to'] );
+		if ( is_wp_error( $result ) ) {
+			\WP_CLI::error( $result->get_error_message() );
+		}
+
+		\WP_CLI::success( 'on' === $args[0] ? 'You get an email when a template goes missing.' : 'No email is sent.' );
+	}
+
+	/**
+	 * Prints a front end link that shows a page with another template.
+	 *
+	 * The link is made for the user given with --user, and works for that user only. Nothing is saved.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <post_id>
+	 * : The page.
+	 *
+	 * <template>
+	 * : A template the theme offers, or "default".
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp --user=admin axle-page-template-usage preview-url 12 templates/full-width.php
+	 *
+	 * @subcommand preview-url
+	 *
+	 * @param array $args Positional arguments.
+	 */
+	public function preview_url( array $args ): void {
+		$url = $this->preview->url( absint( $args[0] ), (string) $args[1] );
+
+		if ( '' === $url ) {
+			\WP_CLI::error( 'That page cannot be previewed with that template. Run with --user=<admin>, and check the page and the template.' );
+		}
+
+		\WP_CLI::line( $url );
 	}
 
 	/**
@@ -265,7 +398,7 @@ final class Command {
 	 * : Only this post.
 	 *
 	 * [--source=<source>]
-	 * : editor, quick_edit, bulk_move, theme_switch, cli, ability, undo or other.
+	 * : editor, quick_edit, bulk_move, theme_switch, cli, ability, preview, undo or other.
 	 *
 	 * [--user=<id>]
 	 * : Only changes by this user ID. 0 for WP-CLI and other system changes.

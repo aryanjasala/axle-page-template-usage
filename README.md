@@ -37,6 +37,9 @@ WordPress lets you pick a template for each page but never shows which one is in
 - **Filter with counts**: every template the theme offers and how many pages use it, so 0 means unused
 - **Sort** the list by template
 - **Missing templates** flagged in red, with a notice above the list
+- **Catch templates that went missing**: after a theme update, a theme switch and once a day (for Git and SFTP deploys), the plugin compares the theme's templates with the pages. It shows a notice, adds a Site Health test, and can send one email (off by default) with the template names and page counts
+- **Missing tab**: each missing template with its pages, since when, and the closest template the theme still has (same file name in another folder, the same template name, or the default). **Preview the move**, then move the pages with an **Undo**. Nothing changes by itself
+- **Preview with...**: open a page's front end with another template before you change it. Only for you, nothing is saved, search engines are told to ignore it, and a bar offers **Use this template** and **Close**
 - **Appearance > Axle Page Template Usage**: every template on one screen, with a one-click **Move everything to** for each
 - **Check a theme before switching**: lists every page that would lose its template under an installed theme, lets you choose what to use instead, and applies the plan when the theme is activated, with an **Undo**
 - **Template history**: every template change with who, when and where it came from, filters, a link per page, and undo for one change or a whole batch
@@ -63,6 +66,12 @@ Find every page on a template the theme no longer has, then move them all to the
 ```sh
 wp axle-page-template-usage list --status=missing
 wp axle-page-template-usage reassign missing default
+```
+
+Fail a deploy when a template went missing (exit code 1):
+
+```sh
+wp axle-page-template-usage missing
 ```
 
 Check a theme before you switch to it, then save what to use instead:
@@ -104,15 +113,20 @@ src/
 ├── Templates.php            templates, usage counts, reassigning
 ├── History.php              template history table, recording, trimming, undo
 ├── ThemeCheck.php           what a theme switch would lose, saved plans, applying them
+├── Missing.php              scans for lost templates, suggestions, the email
+├── Preview.php              front end preview with another template
+├── Health.php               Site Health test
 ├── Privacy.php              exporter, eraser, policy text
 ├── Abilities.php            abilities for the Abilities API and MCP
 ├── Admin/
 │   ├── ListColumn.php       column, filter, sorting, missing-template notice, history row action
-│   ├── ReportPage.php       Appearance > Axle Page Template Usage, tabs
+│   ├── ReportPage.php       Appearance > Axle Page Template Usage, tabs, Help tabs
+│   ├── MissingTab.php       Missing tab, move preview, notice, email settings
+│   ├── PreviewTab.php       Preview with... picker
 │   ├── ThemeCheckTab.php    Check a theme tab, switch notice, link on Themes
 │   └── HistoryTab.php       History tab, undo handlers
 └── Cli/Command.php          wp axle-page-template-usage
-assets/admin.css, admin.js
+assets/admin.css, admin.js, preview.css
 uninstall.php
 tests/
 ├── Unit/                    PHPUnit
@@ -127,7 +141,7 @@ Small plugins that each fill one gap in WordPress, all free with no pro version.
 
 | | Plugin | What it does |
 | --- | --- | --- |
-| <img src="https://raw.githubusercontent.com/aryanjasala/axle-staging-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Staging Guard](https://github.com/aryanjasala/axle-staging-guard) | Stops staging copies from emailing real people or getting indexed |
+| <img src="https://raw.githubusercontent.com/aryanjasala/axle-staging-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Staging Guard](https://github.com/aryanjasala/axle-staging-guard) | Stops staging copies from emailing real people, calling live APIs or getting indexed |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-category-tag-trash/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Category & Tag Trash](https://github.com/aryanjasala/axle-category-tag-trash) | A trash for categories, tags and custom terms, with undo and full restore |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-read-only-mode/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Read-Only Mode](https://github.com/aryanjasala/axle-read-only-mode) | Read-only mode for WordPress during migrations and deploys |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-block-restore/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Block Restore](https://github.com/aryanjasala/axle-block-restore) | Restore a single block from an old revision, not the whole post |

@@ -239,10 +239,10 @@ final class ThemeCheckTab implements Service {
 					<p>
 						<?php
 						printf(
-							/* translators: 1: theme name, 2: time since the plan was saved. */
-							esc_html__( 'A plan is saved for %1$s, %2$s ago. It runs the next time you activate that theme.', 'axle-page-template-usage' ),
+							/* translators: 1: theme name, 2: when the plan was saved, such as "5 minutes ago". */
+							esc_html__( 'A plan is saved for %1$s, %2$s. It runs the next time you activate that theme.', 'axle-page-template-usage' ),
 							esc_html( $name ),
-							esc_html( human_time_diff( $saved['time'] ) )
+							AxleUi::relative_time( (int) $saved['time'] ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped in AxleUi.
 						);
 						?>
 					</p>
