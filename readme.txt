@@ -4,7 +4,7 @@ Tags: page template, admin column, filter, block theme, templates
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 3.1.1
+Stable tag: 3.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -111,6 +111,10 @@ Yes, if your theme offers templates for posts. The column only appears on post t
 3. Appearance > Axle Page Template Usage.
 
 == Changelog ==
+
+= 3.2.0 =
+* Fix: write relative times in lower case so they read well mid-sentence
+* New: catch missing templates and preview pages in another template
 
 = 3.1.1 =
 * Fix: only show the templates of post types the user can edit
