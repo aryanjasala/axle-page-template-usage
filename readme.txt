@@ -98,7 +98,7 @@ One small row per change, in one table. It keeps the latest 10,000 changes, drop
 
 = Does it slow down the Pages screen? =
 
-No. It runs one grouped count query when the screen loads and caches the result for a minute.
+No. It runs one grouped count query when the screen loads and keeps the result until a page's template changes, an hour at most.
 
 = Does it work on posts? =
 
