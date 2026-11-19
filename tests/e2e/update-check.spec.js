@@ -104,11 +104,14 @@ test.describe( 'Check a theme update before it runs', () => {
 	} );
 
 	test( 'the ability reads the update with the same rules, and is not offered to someone without the update capability', async ( { rest, browser } ) => {
-		const ran = await rest( 'POST', '/wp-abilities/v1/abilities/axle-page-template-usage/check-theme-update/run', { input: {} } );
-		expect( ran.status ).toBe( 200 );
-		expect( ran.body ).toMatchObject( { theme: THEME, from: '1.0.0', to: '2.0.0', total: 4 } );
-		expect( ran.body.templates.map( ( row ) => [ row.slug, row.count ] ).sort() ).toEqual( [ [ 'aptu-gone', 3 ], [ 'page-templates/aptu-wide.php', 1 ] ] );
-		expect( fixtures.traces().leftovers ).toBe( '' );
+		// The Abilities API needs WordPress 6.9. Older versions only get the capability check below.
+		if ( '1' === wpEval( "echo function_exists( 'wp_register_ability' ) ? '1' : '0';" ) ) {
+			const ran = await rest( 'POST', '/wp-abilities/v1/abilities/axle-page-template-usage/check-theme-update/run', { input: {} } );
+			expect( ran.status ).toBe( 200 );
+			expect( ran.body ).toMatchObject( { theme: THEME, from: '1.0.0', to: '2.0.0', total: 4 } );
+			expect( ran.body.templates.map( ( row ) => [ row.slug, row.count ] ).sort() ).toEqual( [ [ 'aptu-gone', 3 ], [ 'page-templates/aptu-wide.php', 1 ] ] );
+			expect( fixtures.traces().leftovers ).toBe( '' );
+		}
 
 		// A role that may edit pages but not update themes is refused.
 		wp( 'cap', 'remove', ROLE, 'update_themes' );
