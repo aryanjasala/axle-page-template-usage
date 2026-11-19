@@ -4,7 +4,7 @@ Tags: page template, admin column, filter, block theme, templates
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 3.2.0
+Stable tag: 3.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -130,6 +130,9 @@ Yes, if your theme offers templates for posts. The column only appears on post t
 7. Which pages lose their template, under a theme update.
 
 == Changelog ==
+
+= 3.3.0 =
+* New: check a theme update before it runs
 
 = 3.2.0 =
 * Fix: write relative times in lower case so they read well mid-sentence
