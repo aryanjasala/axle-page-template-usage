@@ -56,6 +56,8 @@ final class AccessTest extends TestCase {
 				return in_array( $cap, $this->caps, true );
 			}
 		);
+		Functions\when( 'get_current_user_id' )->justReturn( 7 );
+		Functions\when( 'wp_cache_set' )->justReturn( true );
 		Functions\when( 'sanitize_key' )->alias(
 			static function ( $key ) {
 				return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );

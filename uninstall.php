@@ -22,10 +22,13 @@ function axle_page_template_usage_uninstall_site(): void {
 	delete_option( 'axle_page_template_usage_switch_result' );
 	delete_option( 'axle_page_template_usage_missing_state' );
 	delete_option( 'axle_page_template_usage_missing_alert' );
+	delete_option( 'axle_page_template_usage_update_checks' );
+	delete_option( 'axle_page_template_usage_update_plans' );
 	wp_clear_scheduled_hook( 'axle_page_template_usage_purge' );
 	wp_clear_scheduled_hook( 'axle_page_template_usage_scan' );
 	wp_clear_scheduled_hook( 'axle_page_template_usage_scan_soon' );
 	wp_clear_scheduled_hook( 'axle_page_template_usage_continue_switch' );
+	wp_clear_scheduled_hook( 'axle_page_template_usage_apply_update_plan' );
 }
 
 // Per-user state is not per site. One delete covers every user.

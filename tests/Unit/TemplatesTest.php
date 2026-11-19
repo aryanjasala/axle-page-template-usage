@@ -30,6 +30,7 @@ final class TemplatesTest extends TestCase {
 		);
 		Functions\when( 'wp_get_theme' )->justReturn( $theme );
 		Functions\when( 'post_type_exists' )->justReturn( true );
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
 		Functions\when( 'wp_cache_get_last_changed' )->justReturn( '1' );
 		// Stored template value => number of posts, as the grouped count query returns it.
 		Functions\when( 'wp_cache_get' )->justReturn(

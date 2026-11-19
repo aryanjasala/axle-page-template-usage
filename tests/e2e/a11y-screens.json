@@ -752,6 +752,199 @@
           "axle_page_template_usage_missing_dismissed"
         ]
       ]
+    },
+    {
+      "name": "Themes screen, a theme update is waiting and not checked yet",
+      "setup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "seed",
+          "args": [
+            "{theme}",
+            false,
+            false
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php",
+      "include": [
+        ".aptu-update-check"
+      ],
+      "cleanup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "unseed",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Themes screen, update checked and pages would lose their template",
+      "setup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "seed",
+          "args": [
+            "{theme}",
+            true,
+            false
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php",
+      "include": [
+        ".aptu-update-check"
+      ],
+      "steps": [
+        {
+          "waitFor": ".aptu-update-check .aptu-table"
+        }
+      ],
+      "cleanup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "unseed",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Themes screen, update checked with a saved plan",
+      "setup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "seed",
+          "args": [
+            "{theme}",
+            true,
+            true
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php",
+      "include": [
+        ".aptu-update-check"
+      ],
+      "steps": [
+        {
+          "waitFor": ".aptu-update-plan"
+        }
+      ],
+      "cleanup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "unseed",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard > Updates, update checked and pages would lose their template",
+      "setup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "seed",
+          "args": [
+            "{theme}",
+            true,
+            false
+          ]
+        }
+      ],
+      "url": "/wp-admin/update-core.php",
+      "include": [
+        ".aptu-update-check"
+      ],
+      "steps": [
+        {
+          "waitFor": ".aptu-update-check .aptu-table"
+        }
+      ],
+      "cleanup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "unseed",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Check a theme tab with the update panel",
+      "setup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "seed",
+          "args": [
+            "{theme}",
+            true,
+            false
+          ]
+        }
+      ],
+      "url": "/wp-admin/themes.php?page=axle-page-template-usage&tab=theme",
+      "steps": [
+        {
+          "waitFor": ".aptu-update-check .aptu-table"
+        }
+      ],
+      "cleanup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "unseed",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Preview bar on the front end",
+      "setup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "seed",
+          "args": [
+            "{theme}",
+            false,
+            false
+          ],
+          "save": "keep"
+        },
+        {
+          "js": "update-fixtures.js",
+          "call": "previewUrl",
+          "args": [
+            "{keep}"
+          ],
+          "save": "previewurl"
+        }
+      ],
+      "url": "{previewurl}",
+      "include": [
+        ".axle-front-bar"
+      ],
+      "steps": [
+        {
+          "waitFor": ".axle-front-bar"
+        }
+      ],
+      "cleanup": [
+        {
+          "js": "update-fixtures.js",
+          "call": "unseed",
+          "args": [
+            "{theme}"
+          ]
+        }
+      ]
     }
   ],
   "skip": {}

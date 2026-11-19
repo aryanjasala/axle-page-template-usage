@@ -156,6 +156,7 @@ test.describe( 'Axle Page Template Usage', () => {
 		const listed = await rest( 'GET', '/wp-abilities/v1/abilities?category=axle-page-template-usage' );
 		expect( listed.body.map( ( ability ) => ability.name ).sort() ).toEqual( [
 			'axle-page-template-usage/check-theme',
+			'axle-page-template-usage/check-theme-update',
 			'axle-page-template-usage/get-history',
 			'axle-page-template-usage/get-missing',
 			'axle-page-template-usage/get-preview-url',

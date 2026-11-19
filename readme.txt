@@ -21,12 +21,14 @@ Axle Page Template Usage adds a **Template** column to the Pages list and a **te
 * Click the column heading to sort pages by template.
 * **Missing templates** are shown in red. If you switch themes or delete a template file, pages that used it fall back to the default template without any warning. This plugin lists them so you can fix them.
 
-**Appearance > Axle Page Template Usage** shows every template on one screen: how many pages use it, which templates are unused, and which pages point at templates that no longer exist. Move every page off a template in one click, for example from a missing template to the default one, or from an old template you want to delete.
+**Appearance > Template Usage** shows every template on one screen: how many pages use it, which templates are unused, and which pages point at templates that no longer exist. Move every page off a template in one click, for example from a missing template to the default one, or from an old template you want to delete.
 **Check a theme before switching.** Pick an installed theme that is not active, and the plugin lists every page and post that would lose its template under it, grouped by template with counts. For each missing template, choose what to use instead (the default template is preselected) and save the plan. When you activate that theme, the pages move by themselves, in batches, and a notice shows the result with an **Undo** button. Appearance > Themes links to the check from each theme's details.
+
+**Check a theme update before it runs.** When the active theme or its parent has an update waiting, a panel appears under the update notice. It shows on the Themes screen and on Dashboard > Updates, and asks **Which pages lose their template?** Click **Check the update** and the plugin downloads the update package to a temporary file. It reads template names from it: the comment header of PHP files, `theme.json` and the block template file names. Then it deletes the file. Nothing is installed, and no code from the theme runs. You see the pages that would lose their template, grouped by template with counts. Choose what each one uses instead, and the pages move right after the update is installed, as one batch with an **Undo**.
 
 **Catch templates that went missing.** A theme update or a deploy can drop a template that pages still use. WordPress keeps the old value and quietly shows the default layout. The plugin compares the theme's templates with your pages after a theme update, after a theme switch and once a day, so Git and SFTP deploys are caught too. It adds a notice for people who can act, a Site Health test, and an optional email (off by default) with the template names and page counts. The **Missing** tab lists each missing template with its pages and the closest template the theme still has: the same file name in another folder, the same template name, or the default. Preview the move, then move the pages. The move goes through the history, so it has an Undo. Nothing is changed by itself.
 
-**Preview with another template.** Use "Preview with..." in a page row to open the page's front end with a different template before you change anything. The preview is only for you, nothing is saved, search engines are told to ignore it, and a bar at the bottom has "Use this template" and "Close". It works for classic and block templates, and only for pages you can edit.
+**Preview with another template.** Use "Preview with..." in a page row to open the page's front end with a different template before you change anything. The preview is only for you, nothing is saved, search engines are told to ignore it, and a bar at the bottom, in the colours of the admin bar, has a **Try** select to look at the next template without going back, plus "Use this template" and "Close". It works for classic and block templates, and only for pages you can edit.
 
 **Template history.** Every change of a page template is recorded: which page, the old and new template, who made the change, when, and where it came from (the editor, Quick Edit, the Move button, a theme switch, WP-CLI or an ability). The **History** tab filters by page, source, user, template and date, and a "Template history" link sits in the row actions on the Pages list. Undo a single change while the page still has the template that change set, or undo a whole batch (one Move click or one theme switch) after a confirm step.
 
@@ -46,13 +48,18 @@ Free and open source under the GPL. No pro version, no upsells, no ads in wp-adm
 * `wp --user=<user> axle-page-template-usage preview-url <post_id> <template>` prints a preview link for that user.
 * `wp axle-page-template-usage check-theme <theme>` lists what would lose its template under an installed theme.
 * `wp axle-page-template-usage set-mapping <theme> <from> <to>` saves what to use instead, and `apply-mapping` runs the saved plan for the active theme.
+* `wp axle-page-template-usage check-update` lists what the waiting update of the active theme would take away, and exits with code 1 when any page would lose its template. `plan-update <theme> <from> <to>` saves what to use instead, and `apply-update-plan` runs a plan whose update is installed.
 * `wp axle-page-template-usage history` lists recorded changes, `undo <id>` and `undo-batch <batch>` undo them.
 
 = Privacy =
 
-The history stores the ID of the user who changed a template, with the page, the templates and the time. It keeps the latest 10,000 changes and deletes entries older than a year (both can be changed with filters). It is shown only to users who can edit pages, and each of them only sees the changes of the post types they can edit. The plugin adds this to the privacy policy guide, to the personal data exporter, and to the eraser, which keeps each change but removes the link to the person. Uninstalling the plugin deletes the history table and saved plans.
+The history stores the ID of the user who changed a template, with the page, the templates and the time. It keeps the latest 10,000 changes and deletes entries older than a year (both can be changed with filters). It is shown only to users who can edit pages, and each of them only sees the changes of the post types they can edit. Counts and titles follow what the person could see in the pages list: private pages and other people's drafts are left out for roles that cannot read or edit them. The plugin adds this to the privacy policy guide, to the personal data exporter, and to the eraser, which keeps each change but removes the link to the person. Uninstalling the plugin deletes the history table and saved plans.
 
 Besides that, nothing is sent anywhere. Free and open source under the GPL, no tracking.
+
+= External services =
+
+Only **Check the update** makes a request: it downloads the update package of the active theme (or its parent) from the address WordPress's own update check gave for that theme, which is the same file the update would install. It happens only when someone clicks the button, runs `wp axle-page-template-usage check-update`, or runs the ability, and the plugin sends nothing but that download request. Premium themes may need a valid license for their package.
 
 **Try it before you install.** [try.axlewp.com/axle-page-template-usage](https://try.axlewp.com/axle-page-template-usage) opens a private WordPress in your browser with this plugin and some demo content.
 
@@ -100,6 +107,14 @@ One small row per change, in one table. It keeps the latest 10,000 changes, drop
 
 No. It runs one grouped count query when the screen loads and keeps the result until a page's template changes, an hour at most.
 
+= Does checking a theme update install it or run its code? =
+
+No. The package is saved to a temporary file and only read: the first lines of its PHP files (as text), `theme.json` (as data) and the names of its block template files. Nothing in it is included or run, and the file and the folder it was read in are deleted before the page loads again. A plan you save runs only after you install the update yourself, or when a site update installs it, and it can be undone.
+
+= Why does the update check say nothing is lost when pages use a template that a plugin adds? =
+
+The check compares what the installed theme and the updated package offer, both read from files. Templates added by a plugin are on neither side, so an update never takes them away and they are never reported.
+
 = Does it work on posts? =
 
 Yes, if your theme offers templates for posts. The column only appears on post types that have templates, or that have posts pointing at a template.
@@ -108,7 +123,11 @@ Yes, if your theme offers templates for posts. The column only appears on post t
 
 1. The Template column and filter on the Pages screen.
 2. A page whose template no longer exists.
-3. Appearance > Axle Page Template Usage.
+3. Appearance > Template Usage: every template and how many pages use it.
+4. The Missing tab, with the closest template for each missing one.
+5. The History tab, with Undo for one change or a whole batch.
+6. The preview bar on the front end, with a select to try the next template.
+7. Which pages lose their template, under a theme update.
 
 == Changelog ==
 

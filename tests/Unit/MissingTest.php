@@ -78,6 +78,7 @@ final class MissingTest extends TestCase {
 				return new \WP_Post_Type( $name, array( 'labels' => array( 'name' => ucfirst( $name ) . 's' ) ) );
 			}
 		);
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
 		Functions\when( 'get_stylesheet' )->justReturn( 'twentytwentyfive' );
 		Functions\when( 'get_template' )->justReturn( 'twentytwentyfive' );
 		Functions\when( 'wp_json_encode' )->alias( 'json_encode' );

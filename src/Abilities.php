@@ -57,20 +57,29 @@ final class Abilities implements Service {
 	private Preview $preview;
 
 	/**
+	 * Theme update check.
+	 *
+	 * @var UpdateCheck
+	 */
+	private UpdateCheck $updates;
+
+	/**
 	 * Sets up the abilities.
 	 *
-	 * @param Templates    $templates   Template lookups and moves.
-	 * @param ThemeCheck   $theme_check Theme check.
-	 * @param History      $history     Template history.
-	 * @param Missing|null $missing     Finder of missing templates.
-	 * @param Preview|null $preview     Front end preview.
+	 * @param Templates        $templates   Template lookups and moves.
+	 * @param ThemeCheck       $theme_check Theme check.
+	 * @param History          $history     Template history.
+	 * @param Missing|null     $missing     Finder of missing templates.
+	 * @param Preview|null     $preview     Front end preview.
+	 * @param UpdateCheck|null $updates     Theme update check.
 	 */
-	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history, ?Missing $missing = null, ?Preview $preview = null ) {
+	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history, ?Missing $missing = null, ?Preview $preview = null, ?UpdateCheck $updates = null ) {
 		$this->templates   = $templates;
 		$this->theme_check = $theme_check;
 		$this->history     = $history;
 		$this->missing     = $missing ?? new Missing( $templates );
 		$this->preview     = $preview ?? new Preview( $templates );
+		$this->updates     = $updates ?? new UpdateCheck( $templates, $theme_check );
 	}
 
 	/**
@@ -264,6 +273,64 @@ final class Abilities implements Service {
 					'show_in_rest' => true,
 					// Clients such as the MCP adapter only list abilities marked public:
 					// `public` from WordPress 7.1, `mcp.public` for the adapter on 6.9 and 7.0.
+					'public'       => true,
+					'mcp'          => array( 'public' => true ),
+				),
+			)
+		);
+
+		wp_register_ability(
+			self::CATEGORY . '/check-theme-update',
+			array(
+				'label'               => __( 'Check a theme update before it runs', 'axle-page-template-usage' ),
+				'description'         => __( 'Downloads the waiting update of the active theme (or its parent) to a temporary file, reads its template names without running any theme code, and lists the templates in use that the update takes away, with item counts for the post types the user can edit. Nothing is installed or moved. The result is kept for a day.', 'axle-page-template-usage' ),
+				'category'            => self::CATEGORY,
+				'input_schema'        => array(
+					'type'                 => 'object',
+					'properties'           => array(
+						'theme' => array(
+							'type'        => 'string',
+							'description' => __( 'Theme folder name: the active theme or its parent. Default: the active theme.', 'axle-page-template-usage' ),
+						),
+					),
+					'additionalProperties' => false,
+					'default'              => array(),
+				),
+				'output_schema'       => array(
+					'type'       => 'object',
+					'properties' => array(
+						'theme'     => array( 'type' => 'string' ),
+						'name'      => array( 'type' => 'string' ),
+						'from'      => array( 'type' => 'string' ),
+						'to'        => array( 'type' => 'string' ),
+						'total'     => array(
+							'type'        => 'integer',
+							'description' => 'Items that would lose their template.',
+						),
+						'templates' => array(
+							'type'  => 'array',
+							'items' => array(
+								'type'       => 'object',
+								'properties' => array(
+									'post_type' => array( 'type' => 'string' ),
+									'slug'      => array( 'type' => 'string' ),
+									'name'      => array( 'type' => 'string' ),
+									'count'     => array( 'type' => 'integer' ),
+								),
+							),
+						),
+					),
+				),
+				'execute_callback'    => array( $this, 'check_theme_update' ),
+				'permission_callback' => array( $this, 'can_check_theme_update' ),
+				'meta'                => array(
+					// It keeps its answer in an option, so it is not read-only, but it changes nothing on the site's pages or themes.
+					'annotations'  => array(
+						'readonly'    => false,
+						'destructive' => false,
+						'idempotent'  => true,
+					),
+					'show_in_rest' => true,
 					'public'       => true,
 					'mcp'          => array( 'public' => true ),
 				),
@@ -483,6 +550,54 @@ final class Abilities implements Service {
 			'total'     => $result['total'],
 			'templates' => $rows,
 		);
+	}
+
+	/**
+	 * Ability: which templates a waiting theme update takes away.
+	 *
+	 * @param array|null $input Ability input.
+	 * @return array|\WP_Error
+	 */
+	public function check_theme_update( $input = null ) {
+		$input      = (array) $input;
+		$pending    = $this->updates->pending_updates();
+		$stylesheet = isset( $input['theme'] ) && '' !== (string) $input['theme'] ? sanitize_text_field( (string) $input['theme'] ) : get_stylesheet();
+		$checked    = $this->updates->check( $stylesheet );
+
+		if ( is_wp_error( $checked ) ) {
+			return $checked;
+		}
+
+		$report = $this->updates->report( $stylesheet );
+		$rows   = array();
+		foreach ( (array) ( $report['groups'] ?? array() ) as $type => $group ) {
+			foreach ( $group as $row ) {
+				$rows[] = array(
+					'post_type' => (string) $type,
+					'slug'      => $row['slug'],
+					'name'      => $row['name'],
+					'count'     => $row['count'],
+				);
+			}
+		}
+
+		return array(
+			'theme'     => $stylesheet,
+			'name'      => (string) ( $pending[ $stylesheet ]['name'] ?? $stylesheet ),
+			'from'      => (string) $checked['from'],
+			'to'        => (string) $checked['to'],
+			'total'     => (int) ( $report['total'] ?? 0 ),
+			'templates' => $rows,
+		);
+	}
+
+	/**
+	 * Permission for check-theme-update: the same rule as the buttons on the Themes screen.
+	 *
+	 * @return bool
+	 */
+	public function can_check_theme_update(): bool {
+		return UpdateCheck::can_check();
 	}
 
 	/**

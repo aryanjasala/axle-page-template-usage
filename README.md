@@ -39,8 +39,10 @@ WordPress lets you pick a template for each page but never shows which one is in
 - **Missing templates** flagged in red, with a notice above the list
 - **Catch templates that went missing**: after a theme update, a theme switch and once a day (for Git and SFTP deploys), the plugin compares the theme's templates with the pages. It shows a notice, adds a Site Health test, and can send one email (off by default) with the template names and page counts
 - **Missing tab**: each missing template with its pages, since when, and the closest template the theme still has (same file name in another folder, the same template name, or the default). **Preview the move**, then move the pages with an **Undo**. Nothing changes by itself
-- **Preview with...**: open a page's front end with another template before you change it. Only for you, nothing is saved, search engines are told to ignore it, and a bar offers **Use this template** and **Close**
-- **Appearance > Axle Page Template Usage**: every template on one screen, with a one-click **Move everything to** for each
+- **Preview with...**: open a page's front end with another template before you change it. Only for you, nothing is saved, search engines are told to ignore it, and a bar in the colours of the admin bar offers a **Try** select for the next template, **Use this template** and **Close**
+- **Appearance > Template Usage**: every template on one screen, with a one-click **Move everything to** for each
+- **Check a theme update before it runs**: under a theme's update notice (Themes screen and Dashboard > Updates), **Which pages lose their template?** reads the update package without installing it or running any of its code, and lists the pages that would lose their template. Pick what they use instead and the move runs right after the update, with an **Undo**
+- **Counts only for what you can see**: a role that cannot read private pages gets counts and titles without them
 - **Check a theme before switching**: lists every page that would lose its template under an installed theme, lets you choose what to use instead, and applies the plan when the theme is activated, with an **Undo**
 - **Template history**: every template change with who, when and where it came from, filters, a link per page, and undo for one change or a whole batch
 - Classic themes (PHP templates, `Template Post Type`) and block themes (`theme.json` and Site Editor templates)
@@ -81,6 +83,13 @@ wp axle-page-template-usage check-theme twentytwentyfour
 wp axle-page-template-usage set-mapping twentytwentyfour missing default
 ```
 
+Check the waiting update of the active theme before you install it (exit code 1 when pages would lose their template):
+
+```sh
+wp axle-page-template-usage check-update
+wp axle-page-template-usage plan-update twentytwentyfive templates/landing.php default
+```
+
 ## Screenshots
 
 <table>
@@ -113,6 +122,8 @@ src/
 ├── Templates.php            templates, usage counts, reassigning
 ├── History.php              template history table, recording, trimming, undo
 ├── ThemeCheck.php           what a theme switch would lose, saved plans, applying them
+├── UpdateCheck.php          reads a waiting theme update, plans moves for after it
+├── TemplateFiles.php        template names from a theme folder or zip, without running code
 ├── Missing.php              scans for lost templates, suggestions, the email
 ├── Preview.php              front end preview with another template
 ├── Health.php               Site Health test
@@ -120,10 +131,11 @@ src/
 ├── Abilities.php            abilities for the Abilities API and MCP
 ├── Admin/
 │   ├── ListColumn.php       column, filter, sorting, missing-template notice, history row action
-│   ├── ReportPage.php       Appearance > Axle Page Template Usage, tabs, Help tabs
+│   ├── ReportPage.php       Appearance > Template Usage, tabs, Help tabs
 │   ├── MissingTab.php       Missing tab, move preview, notice, email settings
 │   ├── PreviewTab.php       Preview with... picker
 │   ├── ThemeCheckTab.php    Check a theme tab, switch notice, link on Themes
+│   ├── UpdatePanel.php      "Which pages lose their template?" under a theme update
 │   └── HistoryTab.php       History tab, undo handlers
 └── Cli/Command.php          wp axle-page-template-usage
 assets/admin.css, admin.js, preview.css
@@ -149,15 +161,15 @@ Small plugins that each fill one gap in WordPress, all free with no pro version.
 | <img src="https://raw.githubusercontent.com/aryanjasala/agent-governance/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Agent Governance](https://github.com/aryanjasala/agent-governance) | Hold risky AI agent calls for approval, preview what they change, and roll back a session |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-ai-guard/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle AI Guard](https://github.com/aryanjasala/axle-ai-guard) | See and control every AI call your plugins make: cost, data sent, budgets and a kill switch |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-config-sync/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Config Sync](https://github.com/aryanjasala/axle-config-sync) | Keep settings in git, diff them against the live site, apply with a preview and undo |
-| <img src="https://raw.githubusercontent.com/aryanjasala/axle-leftovers/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Leftovers](https://github.com/aryanjasala/axle-leftovers) | Find what deleted plugins left behind, see who owns it and why, and clean it up with undo |
+| <img src="https://raw.githubusercontent.com/aryanjasala/axle-leftovers/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Leftovers](https://github.com/aryanjasala/axle-leftovers) | Find what deleted plugins and themes left behind, see who owns it and why, and clean it up with undo |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-license-tracker/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle License Tracker](https://github.com/aryanjasala/axle-license-tracker) | See which premium plugins are licensed, which lapsed and stopped getting updates, and what renews when |
-| <img src="https://raw.githubusercontent.com/aryanjasala/axle-review/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Review](https://github.com/aryanjasala/axle-review) | Share drafts through private links and collect outside feedback as block Notes |
+| <img src="https://raw.githubusercontent.com/aryanjasala/axle-review/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Review](https://github.com/aryanjasala/axle-review) | Share drafts through private links, collect outside feedback as block Notes, and know when an approval is out of date |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-runtime-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Runtime Doctor](https://github.com/aryanjasala/axle-runtime-doctor) | Check OPcache coverage, the object cache, PHP support and limits, cron and more, with the fix for your host |
 | <img src="https://raw.githubusercontent.com/aryanjasala/axle-smoke-test/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Axle Smoke Test](https://github.com/aryanjasala/axle-smoke-test) | Check key pages after every update or deploy, see what broke and roll it back |
-| <img src="https://raw.githubusercontent.com/aryanjasala/block-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Doctor](https://github.com/aryanjasala/block-doctor) | Scan the whole site for invalid and broken blocks and fix them in bulk, with undo |
-| <img src="https://raw.githubusercontent.com/aryanjasala/block-theme-ops/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Theme Ops](https://github.com/aryanjasala/block-theme-ops) | Find Site Editor changes that override your theme files, see the diff, reset them or send them to Git |
+| <img src="https://raw.githubusercontent.com/aryanjasala/block-doctor/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Doctor](https://github.com/aryanjasala/block-doctor) | Scan the site for broken blocks and fix them in bulk, with undo. See which posts use each block before you switch a plugin off |
+| <img src="https://raw.githubusercontent.com/aryanjasala/block-theme-ops/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Block Theme Ops](https://github.com/aryanjasala/block-theme-ops) | Find Site Editor changes that override your theme files, see the diff, reset them, send them to Git, move them to another site or lock them |
 | <img src="https://raw.githubusercontent.com/aryanjasala/role-right-sizer/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Role Right-Sizer](https://github.com/aryanjasala/role-right-sizer) | Recommends the smallest role each user needs, from what they actually do |
-| <img src="https://raw.githubusercontent.com/aryanjasala/update-rehearsal/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Update Rehearsal](https://github.com/aryanjasala/update-rehearsal) | Try plugin, theme, core and PHP updates on a disposable copy of your site in WordPress Playground first |
+| <img src="https://raw.githubusercontent.com/aryanjasala/update-rehearsal/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [Update Rehearsal](https://github.com/aryanjasala/update-rehearsal) | Try plugin, theme, core and PHP updates, a new plugin, or life without one, on a disposable copy of your site in WordPress Playground first |
 | <img src="https://raw.githubusercontent.com/aryanjasala/user-session-manager/main/.wordpress-org/icon-128x128.png" alt="" width="32"> | [User Session Manager](https://github.com/aryanjasala/user-session-manager) | See every device signed in, sign out one, and limit sessions per role |
 
 ## License
