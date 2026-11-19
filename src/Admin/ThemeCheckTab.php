@@ -39,14 +39,23 @@ final class ThemeCheckTab implements Service {
 	private ThemeCheck $check;
 
 	/**
+	 * The panel for waiting theme updates, shown above the picker.
+	 *
+	 * @var UpdatePanel|null
+	 */
+	private ?UpdatePanel $updates;
+
+	/**
 	 * Sets up the tab.
 	 *
-	 * @param Templates  $templates Template data.
-	 * @param ThemeCheck $check     Theme check.
+	 * @param Templates        $templates Template data.
+	 * @param ThemeCheck       $check     Theme check.
+	 * @param UpdatePanel|null $updates   Panel for waiting theme updates.
 	 */
-	public function __construct( Templates $templates, ThemeCheck $check ) {
+	public function __construct( Templates $templates, ThemeCheck $check, ?UpdatePanel $updates = null ) {
 		$this->templates = $templates;
 		$this->check     = $check;
+		$this->updates   = $updates;
 	}
 
 	/**
@@ -116,6 +125,12 @@ final class ThemeCheckTab implements Service {
 		<p class="axle-intro aptu-report__intro">
 			<?php esc_html_e( 'See which pages would lose their template if you switched to another installed theme, and choose what they use instead. The plan is applied when you activate the theme.', 'axle-page-template-usage' ); ?>
 		</p>
+
+		<?php
+		if ( $this->updates ) {
+			$this->updates->render_cards();
+		}
+		?>
 
 		<section class="axle-card" aria-labelledby="aptu-theme-title">
 			<h2 class="axle-card__title" id="aptu-theme-title"><?php esc_html_e( 'Check a theme before switching', 'axle-page-template-usage' ); ?></h2>
@@ -210,6 +225,7 @@ final class ThemeCheckTab implements Service {
 						<?php $object = get_post_type_object( (string) $post_type ); ?>
 						<?php $types[] = $post_type; ?>
 						<h4><?php echo esc_html( $object ? $object->labels->name : (string) $post_type ); ?></h4>
+						<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php /* translators: %s: post type name. */ echo esc_attr( sprintf( __( 'Templates %s would lose', 'axle-page-template-usage' ), $object ? $object->labels->name : (string) $post_type ) ); ?>">
 						<table class="widefat striped aptu-table">
 							<thead>
 								<tr>
@@ -225,6 +241,7 @@ final class ThemeCheckTab implements Service {
 								<?php endforeach; ?>
 							</tbody>
 						</table>
+						</div>
 					<?php endforeach; ?>
 
 					<p class="aptu-mapping-actions">

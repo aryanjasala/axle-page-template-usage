@@ -198,7 +198,7 @@ final class ThemeCheck implements Service {
 	 * @param \WP_Theme $theme Theme.
 	 * @return array<string, string>
 	 */
-	private function saved_templates( \WP_Theme $theme ): array {
+	public function saved_templates( \WP_Theme $theme ): array {
 		$defaults = function_exists( 'get_default_block_template_types' ) ? array_keys( get_default_block_template_types() ) : array();
 		$posts    = get_posts(
 			array(
@@ -286,7 +286,7 @@ final class ThemeCheck implements Service {
 	}
 
 	/**
-	 * A few pages that use a template, for the check list.
+	 * A few pages that use a template, for the check list. Only items the current user may read.
 	 *
 	 * @param string $post_type Post type name.
 	 * @param string $template  Stored template value.
@@ -307,7 +307,8 @@ final class ThemeCheck implements Service {
 			array(
 				'post_type'              => $post_type,
 				'post_status'            => 'any',
-				'posts_per_page'         => $size,
+				// Items the user may not read are dropped below, so ask for more than will show.
+				'posts_per_page'         => $size * 4,
 				'orderby'                => 'ID',
 				'order'                  => 'ASC',
 				'no_found_rows'          => true,
@@ -319,6 +320,13 @@ final class ThemeCheck implements Service {
 
 		$sample = array();
 		foreach ( $posts as $post ) {
+			// No title for an item the user may not read, such as another author's draft.
+			if ( count( $sample ) >= $size ) {
+				break;
+			}
+			if ( ! current_user_can( 'read_post', $post->ID ) ) {
+				continue;
+			}
 			$sample[] = array(
 				'id'    => (int) $post->ID,
 				'title' => '' !== $post->post_title ? $post->post_title : __( '(no title)', 'axle-page-template-usage' ),
@@ -498,6 +506,33 @@ final class ThemeCheck implements Service {
 	}
 
 	/**
+	 * Moves items per a plan made for a theme update, as one batch, once the update is installed.
+	 *
+	 * @param string                               $stylesheet Theme that was updated, the active one or its parent.
+	 * @param array<string, array<string, string>> $mapping    Post type => ( template to replace => template to use ).
+	 * @param int                                  $user       User who made the plan, recorded in the history.
+	 * @param int                                  $limit      Most items to move now, 0 for all.
+	 * @return array<string, mixed> The state after the run.
+	 */
+	public function start_update( string $stylesheet, array $mapping, int $user, int $limit ): array {
+		$state = array(
+			'stylesheet' => get_stylesheet(),
+			'theme'      => (string) wp_get_theme( $stylesheet )->get( 'Name' ),
+			'batch'      => $this->history->new_batch(),
+			'user'       => $user,
+			'time'       => time(),
+			'moved'      => 0,
+			'skipped'    => 0,
+			'remaining'  => 0,
+			'errors'     => 0,
+			'source'     => 'theme_update',
+			'mapping'    => $mapping,
+		);
+
+		return $this->run( $state, $limit );
+	}
+
+	/**
 	 * Moves what is left of a switch that was too big for one request.
 	 */
 	public function continue_switch(): void {
@@ -510,16 +545,18 @@ final class ThemeCheck implements Service {
 	/**
 	 * Moves items per the mapping of the active theme, up to $limit, and saves the result for the notice.
 	 *
-	 * @param array<string, mixed> $state Switch state: stylesheet, theme, batch, user, time, moved, skipped, remaining, errors.
+	 * @param array<string, mixed> $state Switch state: stylesheet, theme, batch, user, time, moved, skipped, remaining, errors. A theme update adds source (theme_update) and mapping.
 	 * @param int                  $limit Most items to move now, 0 for all.
 	 * @return array<string, mixed> The state after the run.
 	 */
 	public function run( array $state, int $limit ): array {
 		$stylesheet = (string) $state['stylesheet'];
-		$mapping    = $this->get_mapping( $stylesheet );
-		$budget     = $limit;
-		$remaining  = 0;
-		$errors     = 0;
+		// A plan made for a theme update travels with the state, so a run that continues later still has it.
+		$mapping   = isset( $state['mapping'] ) && is_array( $state['mapping'] ) ? $state['mapping'] : $this->get_mapping( $stylesheet );
+		$source    = isset( $state['source'] ) && 'theme_update' === $state['source'] ? 'theme_update' : 'theme_switch';
+		$budget    = $limit;
+		$remaining = 0;
+		$errors    = 0;
 
 		foreach ( $mapping as $post_type => $pairs ) {
 			$post_type = (string) $post_type;
@@ -538,7 +575,7 @@ final class ThemeCheck implements Service {
 					continue;
 				}
 
-				$result = $this->templates->reassign( $post_type, $from, (string) $to, $limit ? $budget : 0, false, 'theme_switch', (string) $state['batch'], (int) $state['user'] );
+				$result = $this->templates->reassign( $post_type, $from, (string) $to, $limit ? $budget : 0, false, $source, (string) $state['batch'], (int) $state['user'] );
 				if ( is_wp_error( $result ) ) {
 					++$errors;
 					continue;
@@ -557,6 +594,9 @@ final class ThemeCheck implements Service {
 		wp_clear_scheduled_hook( self::CRON );
 		if ( $remaining ) {
 			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::CRON );
+		} elseif ( 'theme_update' === $source ) {
+			unset( $state['mapping'] );
+			update_option( self::OPTION_RESULT, $state, false );
 		} else {
 			$this->clear_mapping( $stylesheet );
 		}
@@ -603,7 +643,9 @@ final class ThemeCheck implements Service {
 		$state = $this->get_result();
 		if ( $state && (string) $batch === $state['batch'] && empty( $summary['remaining'] ) ) {
 			$this->dismiss_result();
-			$this->clear_mapping( (string) $state['stylesheet'] );
+			if ( 'theme_update' !== ( $state['source'] ?? '' ) ) {
+				$this->clear_mapping( (string) $state['stylesheet'] );
+			}
 		}
 	}
 }

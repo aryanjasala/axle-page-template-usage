@@ -67,6 +67,7 @@ final class HistoryTab implements Service {
 			'quick_edit'   => __( 'Quick Edit', 'axle-page-template-usage' ),
 			'bulk_move'    => __( 'Move button', 'axle-page-template-usage' ),
 			'theme_switch' => __( 'Theme switch', 'axle-page-template-usage' ),
+			'theme_update' => __( 'Theme update', 'axle-page-template-usage' ),
 			'cli'          => __( 'WP-CLI', 'axle-page-template-usage' ),
 			'ability'      => __( 'Ability', 'axle-page-template-usage' ),
 			'preview'      => __( 'Preview', 'axle-page-template-usage' ),
@@ -293,6 +294,7 @@ final class HistoryTab implements Service {
 	private function render_table( array $items ): void {
 		$sources = self::source_labels();
 		?>
+		<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php esc_attr_e( 'Template history', 'axle-page-template-usage' ); ?>">
 		<table class="widefat striped aptu-history-table">
 			<thead>
 				<tr>
@@ -328,6 +330,7 @@ final class HistoryTab implements Service {
 				<?php endforeach; ?>
 			</tbody>
 		</table>
+		</div>
 		<?php
 	}
 

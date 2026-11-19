@@ -217,3 +217,9 @@
 		width: auto;
 	}
 }
+
+/* A screen reader label inside a scrolling table is absolutely placed. Without a positioned wrapper it escapes the clip and makes the page scroll sideways on older WordPress. */
+.axle-ui .axle-scroll,
+.aptu-update-check .axle-scroll {
+	position: relative;
+}

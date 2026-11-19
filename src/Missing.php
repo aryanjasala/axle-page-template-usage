@@ -181,6 +181,9 @@ final class Missing implements Service {
 		$old     = isset( $previous['missing'] ) && is_array( $previous['missing'] ) ? $previous['missing'] : array();
 		$names   = isset( $previous['templates'] ) && is_array( $previous['templates'] ) ? $previous['templates'] : array();
 
+		// The record is about the whole site, whoever asked for the scan: counts cover every item.
+		add_filter( 'axle_page_template_usage_counts_cover_all', '__return_true', PHP_INT_MAX );
+
 		foreach ( $this->post_types() as $type ) {
 			$offered[ $type ] = array_map( 'strval', $this->templates->get_templates( $type ) );
 
@@ -202,6 +205,8 @@ final class Missing implements Service {
 				$missing[ $type ][ $slug ] = $entry;
 			}
 		}
+
+		remove_filter( 'axle_page_template_usage_counts_cover_all', '__return_true', PHP_INT_MAX );
 
 		$state = array(
 			'fingerprint' => $fingerprint,

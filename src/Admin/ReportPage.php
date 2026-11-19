@@ -1,6 +1,6 @@
 <?php
 /**
- * Appearance > Axle Page Template Usage report.
+ * Appearance > Template Usage report.
  *
  * @package AryanX\Axle\PageTemplateUsage
  */
@@ -155,7 +155,7 @@ final class ReportPage implements Service {
 	}
 
 	/**
-	 * Capability needed to open Appearance > Axle Page Template Usage.
+	 * Capability needed to open Appearance > Template Usage.
 	 *
 	 * Moving posts also needs edit_posts on the post type, and edit_post on each post.
 	 *
@@ -163,7 +163,7 @@ final class ReportPage implements Service {
 	 */
 	public static function capability(): string {
 		/**
-		 * Filters the capability needed to open Appearance > Axle Page Template Usage.
+		 * Filters the capability needed to open Appearance > Template Usage.
 		 *
 		 * @param string $capability Default edit_pages.
 		 */
@@ -215,12 +215,13 @@ final class ReportPage implements Service {
 	}
 
 	/**
-	 * Registers Appearance > Axle Page Template Usage.
+	 * Registers Appearance > Template Usage.
 	 */
 	public function add_page(): void {
+		// The plugin name keeps "Axle" (WordPress.org asked for it). The menu and the title drop it, like the rest of the family.
 		$hook = add_theme_page(
-			__( 'Axle Page Template Usage', 'axle-page-template-usage' ),
-			__( 'Axle Page Template Usage', 'axle-page-template-usage' ),
+			__( 'Template Usage', 'axle-page-template-usage' ),
+			__( 'Template Usage', 'axle-page-template-usage' ),
 			self::capability(),
 			self::SLUG,
 			array( $this, 'render' )
@@ -288,7 +289,7 @@ final class ReportPage implements Service {
 		$tab = $this->current_tab();
 		?>
 		<div class="wrap axle-ui aptu-report">
-			<h1 class="wp-heading-inline"><?php esc_html_e( 'Axle Page Template Usage', 'axle-page-template-usage' ); ?></h1>
+			<h1 class="wp-heading-inline"><?php esc_html_e( 'Template Usage', 'axle-page-template-usage' ); ?></h1>
 			<hr class="wp-header-end">
 
 			<?php $this->render_tabs( $tab ); ?>
@@ -350,7 +351,7 @@ final class ReportPage implements Service {
 		}
 		$missing = $this->missing_tab ? $this->missing_tab->count() : 0;
 		?>
-		<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Axle Page Template Usage views', 'axle-page-template-usage' ); ?>">
+		<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Template usage views', 'axle-page-template-usage' ); ?>">
 			<?php foreach ( $tabs as $key => $label ) : ?>
 				<a class="nav-tab<?php echo $key === $current ? ' nav-tab-active' : ''; ?>" href="<?php echo esc_url( 'templates' === $key ? self::url() : self::url( array( 'tab' => $key ) ) ); ?>"<?php echo $key === $current ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?>
 				<?php
@@ -443,6 +444,7 @@ final class ReportPage implements Service {
 				?>
 			</div>
 
+			<div class="axle-scroll" tabindex="0" role="region" aria-label="<?php /* translators: %s: post type name. */ echo esc_attr( sprintf( __( 'Templates used by %s', 'axle-page-template-usage' ), $post_type->labels->name ) ); ?>">
 			<table class="widefat striped aptu-table">
 				<thead>
 					<tr>
@@ -478,6 +480,7 @@ final class ReportPage implements Service {
 					<?php endforeach; ?>
 				</tbody>
 			</table>
+			</div>
 		</section>
 		<?php
 	}

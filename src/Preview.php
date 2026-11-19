@@ -7,6 +7,7 @@
 
 namespace AryanX\Axle\PageTemplateUsage;
 
+use AryanX\Axle\PageTemplateUsage\Admin\AxleUi;
 use AryanX\Axle\PageTemplateUsage\Admin\ReportPage;
 use const AryanX\Axle\PageTemplateUsage\PLUGIN_FILE;
 use const AryanX\Axle\PageTemplateUsage\VERSION;
@@ -25,6 +26,7 @@ final class Preview implements Service {
 	public const ARG       = 'axle_ptu_preview';
 	public const TOKEN_ARG = 'axle_ptu_token';
 	public const ACTION    = 'axle_page_template_usage_use_preview';
+	public const SWITCH    = 'axle_page_template_usage_switch_preview';
 
 	/**
 	 * The page and template being previewed in this request.
@@ -55,6 +57,7 @@ final class Preview implements Service {
 	public function register(): void {
 		add_action( 'template_redirect', array( $this, 'maybe_start' ), 1 );
 		add_action( 'admin_post_' . self::ACTION, array( $this, 'handle_use' ) );
+		add_action( 'admin_post_' . self::SWITCH, array( $this, 'handle_switch' ) );
 	}
 
 	/**
@@ -212,7 +215,6 @@ final class Preview implements Service {
 		add_filter( 'wp_robots', 'wp_robots_no_robots' );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
 		add_action( 'wp_footer', array( $this, 'render_bar' ), 100 );
-		add_filter( 'body_class', array( $this, 'body_class' ) );
 
 		/**
 		 * Fires when a page is shown with another template as a preview.
@@ -240,23 +242,11 @@ final class Preview implements Service {
 	}
 
 	/**
-	 * Adds a class to the body so the bar has room.
-	 *
-	 * @param string[] $classes Body classes.
-	 * @return string[]
-	 */
-	public function body_class( $classes ) {
-		$classes   = (array) $classes;
-		$classes[] = 'aptu-previewing';
-
-		return $classes;
-	}
-
-	/**
-	 * Styles for the preview bar.
+	 * Styles for the preview bar: the shared front-end bar, in the admin bar's colours.
 	 */
 	public function enqueue(): void {
-		wp_enqueue_style( 'axle-page-template-usage-preview', plugins_url( 'assets/preview.css', PLUGIN_FILE ), array(), VERSION );
+		AxleUi::enqueue_front();
+		wp_enqueue_style( 'axle-page-template-usage-preview', plugins_url( 'assets/preview.css', PLUGIN_FILE ), array( 'axle-front' ), VERSION );
 	}
 
 	/**
@@ -294,23 +284,102 @@ final class Preview implements Service {
 		 * @param string $template Template being previewed.
 		 */
 		$message = (string) apply_filters( 'axle_page_template_usage_preview_message', $message, $id, $template );
+		$options = $this->switch_options( $id, $template );
 		?>
-		<div class="aptu-preview-bar" role="region" aria-label="<?php esc_attr_e( 'Template preview', 'axle-page-template-usage' ); ?>">
-			<p class="aptu-preview-bar__text"><?php echo esc_html( $message ); ?></p>
-			<div class="aptu-preview-bar__actions">
+		<div class="axle-front-bar axle-front-bar--bottom wp-core-ui aptu-preview-bar" role="region" aria-label="<?php esc_attr_e( 'Template preview', 'axle-page-template-usage' ); ?>">
+			<p class="axle-front-bar__text"><?php echo esc_html( $message ); ?></p>
+			<?php if ( count( $options ) > 1 ) : ?>
+				<form method="get" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="axle-front-bar__actions aptu-preview-switch">
+					<input type="hidden" name="action" value="<?php echo esc_attr( self::SWITCH ); ?>">
+					<input type="hidden" name="post" value="<?php echo esc_attr( (string) $id ); ?>">
+					<?php wp_nonce_field( self::SWITCH . $id, '_wpnonce', false ); ?>
+					<label for="aptu-preview-template"><?php esc_html_e( 'Try', 'axle-page-template-usage' ); ?></label>
+					<select name="template" id="aptu-preview-template">
+						<?php foreach ( $options as $value => $label ) : ?>
+							<option value="<?php echo esc_attr( (string) $value ); ?>" <?php selected( $template, (string) $value ); ?>><?php echo esc_html( $label ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<button type="submit" class="button"><?php esc_html_e( 'Preview', 'axle-page-template-usage' ); ?></button>
+				</form>
+			<?php endif; ?>
+			<div class="axle-front-bar__actions">
 				<?php if ( ! $same ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<?php wp_nonce_field( self::ACTION . $id ); ?>
 						<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
 						<input type="hidden" name="post" value="<?php echo esc_attr( (string) $id ); ?>">
 						<input type="hidden" name="template" value="<?php echo esc_attr( $template ); ?>">
-						<button type="submit" class="aptu-preview-bar__button aptu-preview-bar__button--primary"><?php esc_html_e( 'Use this template', 'axle-page-template-usage' ); ?></button>
+						<button type="submit" class="button button-primary"><?php esc_html_e( 'Use this template', 'axle-page-template-usage' ); ?></button>
 					</form>
 				<?php endif; ?>
-				<a class="aptu-preview-bar__button" href="<?php echo esc_url( $close ); ?>"><?php esc_html_e( 'Close', 'axle-page-template-usage' ); ?></a>
+				<a class="button" href="<?php echo esc_url( $close ); ?>"><?php esc_html_e( 'Close', 'axle-page-template-usage' ); ?></a>
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Templates the select in the bar offers: the default one and what the theme has for this post type.
+	 *
+	 * @param int    $post_id  Page.
+	 * @param string $template Template being previewed, always included.
+	 * @return array<string, string> Value => name.
+	 */
+	private function switch_options( int $post_id, string $template ): array {
+		$post = get_post( $post_id );
+		if ( ! $post instanceof \WP_Post ) {
+			return array();
+		}
+
+		$options = array( Templates::DEFAULT_TEMPLATE => __( 'Default', 'axle-page-template-usage' ) ) + $this->templates->get_templates( $post->post_type );
+
+		/**
+		 * Filters the templates the preview bar offers to try next.
+		 *
+		 * @param array<string, string> $options  Template value => name. The default template comes first.
+		 * @param int                   $post_id  Page.
+		 * @param string                $template Template being previewed.
+		 */
+		$options = (array) apply_filters( 'axle_page_template_usage_preview_options', $options, $post_id, $template );
+
+		// Only what the theme offers can be previewed, whatever a filter adds.
+		return array_filter(
+			$options,
+			function ( $name, $value ) use ( $post ): bool {
+				return '' !== $name && $this->valid_template( $post->post_type, (string) $value );
+			},
+			ARRAY_FILTER_USE_BOTH
+		);
+	}
+
+	/**
+	 * Sends the person to the preview with the template chosen in the bar.
+	 *
+	 * The link needs its own signed token, so the select posts here and gets the URL back.
+	 */
+	public function handle_switch(): void {
+		// A GET request: the nonce in the query is checked right below.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$post_id  = isset( $_GET['post'] ) ? absint( $_GET['post'] ) : 0;
+		$template = isset( $_GET['template'] ) ? sanitize_text_field( wp_unslash( $_GET['template'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		check_admin_referer( self::SWITCH . $post_id );
+
+		$url = $this->url( $post_id, $template );
+		if ( '' === $url ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to preview this page with that template.', 'axle-page-template-usage' ), 403 );
+		}
+
+		/**
+		 * Fires when someone picks another template in the preview bar.
+		 *
+		 * @param int    $post_id  Page.
+		 * @param string $template Template chosen.
+		 */
+		do_action( 'axle_page_template_usage_preview_switched', $post_id, $template );
+
+		wp_safe_redirect( $url );
+		exit;
 	}
 
 	/**

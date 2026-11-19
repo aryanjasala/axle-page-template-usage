@@ -48,6 +48,14 @@ wp axle-page-template-usage apply-mapping
 `set-mapping` saves one entry of the plan for `<theme>`: items on `<from>` (a template, or `missing` for every template the theme lacks) get `<to>` (a template of that theme, or `default`). `apply-mapping` moves items per the saved plan of the **active** theme, with no limit. Core runs the plan by itself on the first request after a theme switch, including the first WP-CLI command after `wp theme activate`. The `axle_page_template_usage_apply_on_switch` filter turns that off.
 
 ```sh
+wp axle-page-template-usage check-update [<theme>] [--cached] [--format=<format>]
+wp axle-page-template-usage plan-update <theme> [<from>] [<to>] [--post_type=<type>] [--clear]
+wp axle-page-template-usage apply-update-plan
+```
+
+`check-update` downloads the waiting update of the active theme (or its parent) to a temporary file, reads its template names without running any theme code, deletes it, and lists the templates in use that the update takes away, with item counts. It installs and moves nothing. It exits with code 1 when any item would lose its template. `--cached` reuses the last check (kept for a day). `plan-update` saves what to use instead for one template (`--clear` removes the whole plan). The pages move right after the update is installed, as one history batch (source `theme_update`) with Undo. `apply-update-plan` runs a plan whose update is already installed, for when the `axle_page_template_usage_apply_on_update` filter turned the automatic run off.
+
+```sh
 wp axle-page-template-usage history [--post=<id>] [--source=<source>] [--user=<id>] [--batch=<batch>] [--limit=<n>] [--format=<format>]
 wp axle-page-template-usage undo <id>
 wp axle-page-template-usage undo-batch <batch>
@@ -79,11 +87,26 @@ wp axle-page-template-usage undo-batch <batch>
 | `axle_page_template_usage_preview_applied` | action | `( int $post_id, string $template, string $previous )`. Fires after "Use this template" saved it |
 | `axle_page_template_usage_post_types` | filter | `( string[] $post_types )`. Post types to look at. Types without templates are left out on their own |
 | `axle_page_template_usage_sortable` | filter | `( bool $sortable, string $post_type )`. Return `false` to turn off sorting by template, which joins postmeta and is slow on very large sites |
-| `axle_page_template_usage_capability` | filter | `( string $capability )`. Who may open Appearance > Axle Page Template Usage. Default `edit_pages` |
+| `axle_page_template_usage_capability` | filter | `( string $capability )`. Who may open Appearance > Template Usage. Default `edit_pages` |
 | `axle_page_template_usage_move_limit` | filter | `( int $limit, string $post_type )`. Items one Move click handles. Default 500 |
 | `axle_page_template_usage_show_missing_notice` | filter | `( bool $show, string $post_type, int $missing )`. Whether the list screen warns about items on missing templates |
 | `axle_page_template_usage_before_reassign` | action | `( string $post_type, string $from, string $to, int $limit )`. Fires before items move, from the screen or WP-CLI |
 | `axle_page_template_usage_reassigned` | action | `( string $post_type, string $from, string $to, int[] $post_ids )`. Fires for every batch of items moved |
+| `axle_page_template_usage_update_check_capability` | filter | `( string $capability )`. Who may check a theme update and plan its moves. Needs the report and theme check capabilities too. Default `update_themes` |
+| `axle_page_template_usage_update_package` | filter | `( string $package, string $stylesheet, array $info )`. The address of the package an update would install. Premium themes can supply one |
+| `axle_page_template_usage_update_max_package_size` | filter | `( int $bytes )`. Largest update package that is read. Default 100 MB |
+| `axle_page_template_usage_update_max_files` | filter | `( int $limit )`. Most files a package may hold before it is refused. Default 20000 |
+| `axle_page_template_usage_update_check_lifetime` | filter | `( int $seconds )`. How long a check of an update is trusted. Default one day |
+| `axle_page_template_usage_update_checked` | action | `( array $result, string $stylesheet )`. Fires after an update was read. The result holds template names only |
+| `axle_page_template_usage_update_check_message` | filter | `( string $summary, string $stylesheet, array $report )`. The sentence that says what an update would do to the pages |
+| `axle_page_template_usage_update_notice_screens` | filter | `( string[] $screen_ids )`. Screens that show "Which pages lose their template?". Default `themes` and `update-core` |
+| `axle_page_template_usage_update_plan_saved` | action | `( string $stylesheet, array $map )`. Fires after the plan for an update was saved. An empty map means it was cleared |
+| `axle_page_template_usage_update_plan_lifetime` | filter | `( int $seconds )`. How long a plan waits for its update. Default 14 days |
+| `axle_page_template_usage_apply_on_update` | filter | `( bool $apply )`. Return `false` to keep a plan until `apply-update-plan` runs it |
+| `axle_page_template_usage_update_health_result` | filter | `( array $result, string[] $affected )`. The Site Health result for an update that takes away templates |
+| `axle_page_template_usage_counts_cover_all` | filter | `( bool $all, string $post_type, int $user )`. Whether counts cover every item for the current user. By default only users who can edit others' items and read private ones, and WP-CLI and cron, see every item |
+| `axle_page_template_usage_preview_options` | filter | `( array $options, int $post_id, string $template )`. The templates the preview bar offers to try next |
+| `axle_page_template_usage_preview_switched` | action | `( int $post_id, string $template )`. Fires when someone picks another template in the preview bar |
 | `axle_page_template_usage_theme_check_capability` | filter | `( string $capability )`. Who may save or remove a plan for a theme. Default `switch_themes` |
 | `axle_page_template_usage_theme_templates` | filter | `( array $templates, string $stylesheet, string $post_type, WP_Theme $theme )`. Templates a theme that is not active offers, when checking it |
 | `axle_page_template_usage_theme_check_sample_size` | filter | `( int $size )`. Example items listed under each template in the check. Default 5 |
@@ -117,6 +140,7 @@ On WordPress 6.9 and later, Axle Page Template Usage registers [abilities](https
 | `axle-page-template-usage/get-preview-url` | Read-only. A front end link that shows `post_id` with `template`, for the current user only, saving nothing | the right to edit that page, and access to its post type |
 | `axle-page-template-usage/reassign` | Moves items from `from` (a template, `default` or `missing`) to `to`, at most 500 per run, skipping items the user cannot edit. Returns `moved`, `skipped`, `remaining` and the `batch` ID of the move | the Axle Page Template Usage capability and `edit_posts` on the post type |
 | `axle-page-template-usage/check-theme` | Read-only. For an installed theme that is not active (`theme`), which items would lose their template, grouped by template with counts, and what a saved plan uses instead | the Axle Page Template Usage capability |
+| `axle-page-template-usage/check-theme-update` | Downloads the waiting update of the active theme (`theme`, or its parent) to a temporary file, reads its template names without running theme code, and lists the templates in use that it takes away, with counts for the post types the user can edit. Installs and moves nothing, keeps its answer in an option, so not read-only | the Axle Page Template Usage, theme check and `update_themes` capabilities |
 | `axle-page-template-usage/get-history` | Read-only. Recorded template changes, newest first, filtered by `post_id`, `source` or `batch`, with whether each can still be undone | the Axle Page Template Usage capability |
 
 ## PHP API

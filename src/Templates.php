@@ -96,10 +96,62 @@ final class Templates implements Service {
 	}
 
 	/**
+	 * Whether the current user may see every item of a post type, so one count fits everybody.
+	 *
+	 * That takes the right to edit other people's items and to read their
+	 * private ones. WP-CLI and cron have no user and are trusted. Anyone else
+	 * only gets counts of the items they could open in the list screen.
+	 *
+	 * @param string $post_type Post type name.
+	 * @return bool
+	 */
+	public function sees_all_items( string $post_type ): bool {
+		$user   = get_current_user_id();
+		$all    = 0 === $user;
+		$object = $all ? null : get_post_type_object( $post_type );
+
+		if ( ! $all && $object instanceof \WP_Post_Type ) {
+			$all = current_user_can( $object->cap->edit_others_posts ) && current_user_can( $object->cap->read_private_posts );
+		}
+
+		/**
+		 * Filters whether counts cover every item of a post type for the current user.
+		 *
+		 * Return false to count only the items the user could see in the list
+		 * screen: published ones, their own, and other people's drafts or
+		 * private items when the capabilities allow it.
+		 *
+		 * @param bool   $all       Default true for users who can edit others' items and read private ones, and for WP-CLI and cron.
+		 * @param string $post_type Post type name.
+		 * @param int    $user      User ID, 0 for WP-CLI and cron.
+		 */
+		return (bool) apply_filters( 'axle_page_template_usage_counts_cover_all', $all, $post_type, $user );
+	}
+
+	/**
+	 * Which statuses of other people's items the current user may see, as two flags for the count queries.
+	 *
+	 * @param string $post_type Post type name.
+	 * @return array{int, int} Drafts and the like of others (edit_others), private items of others (read_private).
+	 */
+	private function other_people_flags( string $post_type ): array {
+		$object = get_post_type_object( $post_type );
+		if ( ! $object instanceof \WP_Post_Type ) {
+			return array( 0, 0 );
+		}
+
+		return array(
+			current_user_can( $object->cap->edit_others_posts ) ? 1 : 0,
+			current_user_can( $object->cap->read_private_posts ) ? 1 : 0,
+		);
+	}
+
+	/**
 	 * Number of posts per stored template value, excluding trashed posts.
 	 *
-	 * Cached against the `posts` last-changed key, which core bumps whenever
-	 * a post or its meta changes, so counts are never stale.
+	 * Counts only items the current user could see in the list screen, so a
+	 * role that cannot read private pages does not learn how many there are.
+	 * Cached until a template changes (see on_meta_change), and an hour at most.
 	 *
 	 * @param string $post_type Post type name.
 	 * @return array<string, int> Stored template value => post count.
@@ -107,26 +159,49 @@ final class Templates implements Service {
 	public function get_usage_counts( string $post_type ): array {
 		global $wpdb;
 
-		// Kept until a template changes (see on_meta_change), and an hour at most.
-		$cache_key = 'counts:' . $post_type;
+		$all       = $this->sees_all_items( $post_type );
+		$user      = $all ? 0 : get_current_user_id();
+		$cache_key = $all ? 'counts:' . $post_type : 'counts:' . $post_type . ':' . $this->generation( $post_type ) . ':' . $user;
 		$counts    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( is_array( $counts ) ) {
 			return $counts;
 		}
 
 		// A grouped count across postmeta has no WP_Query equivalent.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT pm.meta_value AS template, COUNT(*) AS total
-				FROM {$wpdb->posts} p
-				INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
-				WHERE p.post_type = %s AND p.post_status NOT IN ( 'trash', 'auto-draft', 'inherit' )
-				GROUP BY pm.meta_value",
-				self::META_KEY,
-				$post_type
-			)
-		);
+		if ( $all ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT pm.meta_value AS template, COUNT(*) AS total
+					FROM {$wpdb->posts} p
+					INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+					WHERE p.post_type = %s AND p.post_status NOT IN ( 'trash', 'auto-draft', 'inherit' )
+					GROUP BY pm.meta_value",
+					self::META_KEY,
+					$post_type
+				)
+			);
+		} else {
+			list( $others, $private ) = $this->other_people_flags( $post_type );
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT pm.meta_value AS template, COUNT(*) AS total
+					FROM {$wpdb->posts} p
+					INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+					WHERE p.post_type = %s AND p.post_status NOT IN ( 'trash', 'auto-draft', 'inherit' )
+					AND ( p.post_status = 'publish' OR p.post_author = %d
+						OR ( %d = 1 AND p.post_status <> 'private' )
+						OR ( %d = 1 AND p.post_status = 'private' ) )
+					GROUP BY pm.meta_value",
+					self::META_KEY,
+					$post_type,
+					$user,
+					$others,
+					$private
+				)
+			);
+		}
 
 		$counts = array();
 		foreach ( $rows as $row ) {
@@ -139,18 +214,66 @@ final class Templates implements Service {
 	}
 
 	/**
+	 * A value that changes whenever the counts of a post type are flushed, to retire every user's cached counts at once.
+	 *
+	 * @param string $post_type Post type name.
+	 * @return string
+	 */
+	private function generation( string $post_type ): string {
+		$generation = wp_cache_get( 'generation:' . $post_type, self::CACHE_GROUP );
+		if ( ! is_string( $generation ) || '' === $generation ) {
+			$generation = (string) microtime( true );
+			wp_cache_set( 'generation:' . $post_type, $generation, self::CACHE_GROUP );
+		}
+
+		return $generation;
+	}
+
+	/**
+	 * Number of items of a post type the current user could see in the list screen, excluding trash.
+	 *
+	 * @param string $post_type Post type name.
+	 * @return int
+	 */
+	private function get_visible_total( string $post_type ): int {
+		global $wpdb;
+
+		if ( $this->sees_all_items( $post_type ) ) {
+			$all = 0;
+			foreach ( (array) wp_count_posts( $post_type ) as $status => $total ) {
+				if ( ! in_array( $status, array( 'trash', 'auto-draft', 'inherit' ), true ) ) {
+					$all += (int) $total;
+				}
+			}
+
+			return $all;
+		}
+
+		list( $others, $private ) = $this->other_people_flags( $post_type );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->posts} p
+				WHERE p.post_type = %s AND p.post_status NOT IN ( 'trash', 'auto-draft', 'inherit' )
+				AND ( p.post_status = 'publish' OR p.post_author = %d
+					OR ( %d = 1 AND p.post_status <> 'private' )
+					OR ( %d = 1 AND p.post_status = 'private' ) )",
+				$post_type,
+				get_current_user_id(),
+				$others,
+				$private
+			)
+		);
+	}
+
+	/**
 	 * Number of posts that use the default template, with or without the meta set.
 	 *
 	 * @param string $post_type Post type name.
 	 * @return int
 	 */
 	public function get_default_count( string $post_type ): int {
-		$all = 0;
-		foreach ( (array) wp_count_posts( $post_type ) as $status => $total ) {
-			if ( ! in_array( $status, array( 'trash', 'auto-draft', 'inherit' ), true ) ) {
-				$all += (int) $total;
-			}
-		}
+		$all = $this->get_visible_total( $post_type );
 
 		$custom = 0;
 		foreach ( $this->get_usage_counts( $post_type ) as $slug => $total ) {
@@ -514,6 +637,7 @@ final class Templates implements Service {
 	 */
 	public function flush_counts( string $post_type ): void {
 		wp_cache_delete( 'counts:' . $post_type, self::CACHE_GROUP );
+		wp_cache_delete( 'generation:' . $post_type, self::CACHE_GROUP );
 	}
 
 	/**

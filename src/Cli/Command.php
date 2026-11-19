@@ -12,6 +12,7 @@ use AryanX\Axle\PageTemplateUsage\Missing;
 use AryanX\Axle\PageTemplateUsage\Preview;
 use AryanX\Axle\PageTemplateUsage\Templates;
 use AryanX\Axle\PageTemplateUsage\ThemeCheck;
+use AryanX\Axle\PageTemplateUsage\UpdateCheck;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -56,20 +57,29 @@ final class Command {
 	private Preview $preview;
 
 	/**
+	 * Theme update check.
+	 *
+	 * @var UpdateCheck
+	 */
+	private UpdateCheck $updates;
+
+	/**
 	 * Sets up the command.
 	 *
-	 * @param Templates    $templates   Template data.
-	 * @param ThemeCheck   $theme_check Theme check.
-	 * @param History      $history     Template history.
-	 * @param Missing|null $missing     Finder of missing templates.
-	 * @param Preview|null $preview     Front end preview.
+	 * @param Templates        $templates   Template data.
+	 * @param ThemeCheck       $theme_check Theme check.
+	 * @param History          $history     Template history.
+	 * @param Missing|null     $missing     Finder of missing templates.
+	 * @param Preview|null     $preview     Front end preview.
+	 * @param UpdateCheck|null $updates     Theme update check.
 	 */
-	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history, ?Missing $missing = null, ?Preview $preview = null ) {
+	public function __construct( Templates $templates, ThemeCheck $theme_check, History $history, ?Missing $missing = null, ?Preview $preview = null, ?UpdateCheck $updates = null ) {
 		$this->templates   = $templates;
 		$this->theme_check = $theme_check;
 		$this->history     = $history;
 		$this->missing     = $missing ?? new Missing( $templates );
 		$this->preview     = $preview ?? new Preview( $templates );
+		$this->updates     = $updates ?? new UpdateCheck( $templates, $theme_check );
 	}
 
 	/**
@@ -317,6 +327,155 @@ final class Command {
 		}
 
 		\WP_CLI\Utils\format_items( $assoc_args['format'] ?? 'table', $rows, array( 'post_type', 'slug', 'name', 'count', 'already_missing', 'planned' ) );
+	}
+
+	/**
+	 * Lists what a waiting theme update would take away from pages, before it runs.
+	 *
+	 * Downloads the update package of the active theme (or its parent) to a
+	 * temporary file, reads template names from it without running any theme
+	 * code, and deletes it. Nothing is installed or moved. Counts cover every
+	 * item, as WP-CLI has no user. Exits with code 1 when any item would lose
+	 * its template, so a pipeline can stop before updating.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [<theme>]
+	 * : Folder name of the active theme or its parent. Default: the active theme.
+	 *
+	 * [--cached]
+	 * : Use the result of the last check instead of downloading the package again.
+	 *
+	 * [--format=<format>]
+	 * : table, csv, json or yaml.
+	 * ---
+	 * default: table
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-page-template-usage check-update
+	 *     wp axle-page-template-usage check-update twentytwentyfive --format=json
+	 *
+	 * @subcommand check-update
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function check_update( array $args, array $assoc_args ): void {
+		$stylesheet = $args[0] ?? get_stylesheet();
+		if ( ! \WP_CLI\Utils\get_flag_value( $assoc_args, 'cached', false ) || ! $this->updates->get_result( $stylesheet ) ) {
+			$checked = $this->updates->check( $stylesheet );
+			if ( is_wp_error( $checked ) ) {
+				\WP_CLI::error( $checked->get_error_message() );
+			}
+		}
+
+		$types  = array_map( 'strval', wp_list_pluck( $this->templates->get_post_types(), 'name' ) );
+		$report = $this->updates->report( $stylesheet, $types );
+		$plan   = $this->updates->get_plan( $stylesheet );
+		$rows   = array();
+		foreach ( (array) ( $report['groups'] ?? array() ) as $post_type => $group ) {
+			foreach ( $group as $row ) {
+				$rows[] = array(
+					'post_type' => $post_type,
+					'slug'      => $row['slug'],
+					'name'      => $row['name'],
+					'count'     => $row['count'],
+					'planned'   => $plan['map'][ $post_type ][ $row['slug'] ] ?? '',
+				);
+			}
+		}
+
+		\WP_CLI\Utils\format_items( $assoc_args['format'] ?? 'table', $rows, array( 'post_type', 'slug', 'name', 'count', 'planned' ) );
+		if ( $rows ) {
+			\WP_CLI::halt( 1 );
+		}
+	}
+
+	/**
+	 * Saves what to use instead of a template the waiting update takes away.
+	 *
+	 * Run check-update first. The pages move when the update is installed, as
+	 * one batch with Undo in the history.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <theme>
+	 * : Folder name of the active theme or its parent.
+	 *
+	 * [<from>]
+	 * : Template the update takes away.
+	 *
+	 * [<to>]
+	 * : Template the updated theme offers, or "default".
+	 *
+	 * [--post_type=<post_type>]
+	 * : Post type.
+	 * ---
+	 * default: page
+	 * ---
+	 *
+	 * [--clear]
+	 * : Remove the whole plan for the theme instead.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp axle-page-template-usage plan-update twentytwentyfive templates/landing.php default
+	 *     wp axle-page-template-usage plan-update twentytwentyfive --clear
+	 *
+	 * @subcommand plan-update
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function plan_update( array $args, array $assoc_args ): void {
+		if ( \WP_CLI\Utils\get_flag_value( $assoc_args, 'clear', false ) ) {
+			$this->updates->clear_plan( $args[0] );
+			\WP_CLI::success( 'The plan was removed.' );
+			return;
+		}
+
+		if ( count( $args ) < 3 ) {
+			\WP_CLI::error( 'Give the theme, the template to replace and the template to use.' );
+		}
+
+		$plan                     = $this->updates->get_plan( $args[0] );
+		$map                      = $plan['map'] ?? array();
+		$type                     = (string) ( $assoc_args['post_type'] ?? 'page' );
+		$map[ $type ][ $args[1] ] = $args[2];
+		$saved                    = $this->updates->save_plan( $args[0], $map, true );
+		if ( is_wp_error( $saved ) ) {
+			\WP_CLI::error( $saved->get_error_message() );
+		}
+
+		\WP_CLI::success( 'Saved. The pages move when the update is installed.' );
+	}
+
+	/**
+	 * Runs the saved plan of a theme update that is already installed.
+	 *
+	 * The plan runs by itself right after the update. Use this when the
+	 * axle_page_template_usage_apply_on_update filter turned that off. Moves
+	 * every item, with no limit, as one batch with Undo.
+	 *
+	 * @subcommand apply-update-plan
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public function apply_update_plan( array $args, array $assoc_args ): void {
+		unset( $args, $assoc_args );
+
+		$ran = $this->updates->apply( true );
+		if ( ! $ran ) {
+			\WP_CLI::warning( 'No plan is waiting for an installed update.' );
+			return;
+		}
+
+		foreach ( $ran as $stylesheet => $state ) {
+			\WP_CLI::success( sprintf( '%s: moved %d, batch %s.', $stylesheet, $state['moved'], $state['batch'] ) );
+		}
 	}
 
 	/**

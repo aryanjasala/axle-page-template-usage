@@ -13,6 +13,7 @@ use AryanX\Axle\PageTemplateUsage\Admin\MissingTab;
 use AryanX\Axle\PageTemplateUsage\Admin\PreviewTab;
 use AryanX\Axle\PageTemplateUsage\Admin\ReportPage;
 use AryanX\Axle\PageTemplateUsage\Admin\ThemeCheckTab;
+use AryanX\Axle\PageTemplateUsage\Admin\UpdatePanel;
 use AryanX\Axle\PageTemplateUsage\Cli\Command;
 
 defined( 'ABSPATH' ) || exit;
@@ -56,6 +57,13 @@ final class Plugin {
 	 * @var Missing
 	 */
 	private Missing $missing;
+
+	/**
+	 * Theme update check.
+	 *
+	 * @var UpdateCheck
+	 */
+	private UpdateCheck $updates;
 
 	/**
 	 * Front end preview.
@@ -118,6 +126,15 @@ final class Plugin {
 	}
 
 	/**
+	 * Theme update check.
+	 *
+	 * @return UpdateCheck
+	 */
+	public function updates(): UpdateCheck {
+		return $this->updates;
+	}
+
+	/**
 	 * Front end preview.
 	 *
 	 * @return Preview
@@ -133,7 +150,9 @@ final class Plugin {
 		$this->history   = new History();
 		$this->templates = new Templates( $this->history );
 		$this->theme     = new ThemeCheck( $this->templates, $this->history );
-		$theme_tab       = new ThemeCheckTab( $this->templates, $this->theme );
+		$this->updates   = new UpdateCheck( $this->templates, $this->theme );
+		$update_panel    = new UpdatePanel( $this->templates, $this->theme, $this->updates );
+		$theme_tab       = new ThemeCheckTab( $this->templates, $this->theme, $update_panel );
 		$history_tab     = new HistoryTab( $this->templates, $this->history );
 		$this->missing   = new Missing( $this->templates );
 		$this->preview   = new Preview( $this->templates );
@@ -143,16 +162,18 @@ final class Plugin {
 			$this->history,
 			$this->templates,
 			$this->theme,
+			$this->updates,
+			$update_panel,
 			new Privacy( $this->history ),
 			new ListColumn( $this->templates ),
 			$this->missing,
 			$this->preview,
-			new Health( $this->missing ),
+			new Health( $this->missing, $this->updates ),
 			new ReportPage( $this->templates, $theme_tab, $history_tab, $missing_tab, $preview_tab ),
 			$theme_tab,
 			$history_tab,
 			$missing_tab,
-			new Abilities( $this->templates, $this->theme, $this->history, $this->missing, $this->preview ),
+			new Abilities( $this->templates, $this->theme, $this->history, $this->missing, $this->preview, $this->updates ),
 		);
 	}
 
@@ -174,7 +195,7 @@ final class Plugin {
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			\WP_CLI::add_command( 'axle-page-template-usage', new Command( $this->templates, $this->theme, $this->history, $this->missing, $this->preview ) );
+			\WP_CLI::add_command( 'axle-page-template-usage', new Command( $this->templates, $this->theme, $this->history, $this->missing, $this->preview, $this->updates ) );
 		}
 	}
 }
